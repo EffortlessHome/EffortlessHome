@@ -1,0 +1,1102 @@
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+import mimetypes
+import os
+from os import path, walk
+from pathlib import Path
+import shutil
+import subprocess
+from typing import TYPE_CHECKING, List
+
+import aiohttp
+
+from google.api_core.exceptions import GoogleAPIError
+from google import genai
+import voluptuous as vol
+
+from homeassistant.components.recorder import get_instance
+from homeassistant.components import frontend
+from homeassistant.components.alarm_control_panel import DOMAIN as PLATFORM
+from homeassistant.components.notify import BaseNotificationService
+from homeassistant.config import get_default_config_dir
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.discovery import async_load_platform
+from homeassistant.core import ServiceCall
+from homeassistant.components import webhook
+from homeassistant.helpers import entity_platform
+from homeassistant.helpers.entity_component import EntityComponent
+from homeassistant.components.persistent_notification import create as notify_create
+
+import homeassistant.core
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    asyncio,  
+    callback,
+)
+from homeassistant.exceptions import (
+    HomeAssistantError,
+)
+from homeassistant.helpers import (
+    config_validation as cv,
+    device_registry as dr,
+    entity_registry,
+    entity_registry as er,
+)
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.device_registry import DeviceRegistry
+from homeassistant.helpers.service import async_register_admin_service
+from homeassistant.helpers.typing import ConfigType
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers import label_registry as lr
+
+import homeassistant.util.dt as dt_util
+from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.http.view import HomeAssistantView
+from homeassistant.components.frontend import add_extra_js_url
+from homeassistant.components import conversation
+
+from .alarm_common import (
+    async_cancelalarm,
+    async_confirmpendingalarm,
+    async_getalarmstatus,
+)
+from .area_manager import AreaManager
+from .auto_area import AutoArea
+
+from .person import eh_person
+from oasira import OasiraAPIClient, OasiraAPIError
+
+from .const import (
+    DOMAIN,
+    LABELS,
+    WEBHOOK_UPDATE_PUSH_TOKEN,
+    CONF_EMAIL, 
+    ATTR_LATITUDE,
+    ATTR_LONGITUDE,
+    NAME,
+    name_internal
+)
+
+
+from .deviceclassgroupsync import async_setup_devicegroup
+from .event import EventHandler
+from .MotionSensorGrouper import MotionSensorGrouper
+from .SecurityAlarmWebhook import SecurityAlarmWebhook, async_remove
+from .BroadcastWebhook import BroadcastWebhook, async_remove
+
+from .virtualpowersensor import VirtualPowerSensor
+
+from .influx import process_trend_data
+from .binary_sensor import updateEntity
+
+from homeassistant.components import frontend
+from homeassistant.components.http import HomeAssistantView
+from homeassistant.helpers.event import async_track_time_change
+from homeassistant.components import person
+
+try:
+    # Older versions (pre-2025)
+    from homeassistant.components.device_tracker import SOURCE_TYPE_GPS
+except ImportError:
+    # Newer versions (2025+)
+    SOURCE_TYPE_GPS = "gps"
+
+from aiohttp import web
+
+LOCATION_SERVICE_SCHEMA = vol.Schema({
+    vol.Required("device_id"): str,
+    vol.Required("latitude"): float,
+    vol.Required("longitude"): float,
+    vol.Optional("accuracy"): float,
+})
+
+_LOGGER = logging.getLogger(__name__)
+
+class HASSComponent:
+    """Hasscomponent."""
+
+    # Class-level property to hold the hass instance
+    hass_instance = None
+
+    @classmethod
+    def set_hass(cls, hass: HomeAssistant) -> None:
+        """Set Hass."""
+        cls.hass_instance = hass
+
+    @classmethod
+    def get_hass(cls):  
+        """Get Hass."""
+        return cls.hass_instance
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up integration from a config entry."""
+    hass.data.setdefault(DOMAIN, {})   
+
+    system_id = entry.data["system_id"]
+    customer_id = entry.data["customer_id"]
+    id_token = entry.data.get("id_token")
+
+    if not system_id:
+        raise HomeAssistantError("System ID is missing in configuration.")
+
+    if not customer_id:
+        raise HomeAssistantError("Customer ID is missing in configuration.")
+
+    HASSComponent.set_hass(hass)
+
+    # Initialize API client and fetch customer/system data
+    async with OasiraAPIClient(
+        system_id=system_id,
+        id_token=id_token,
+    ) as api_client:
+        try:
+            parsed_data = await api_client.get_customer_and_system()
+
+            hass.data[DOMAIN] = {
+                "fullname": parsed_data["fullname"],
+                "phonenumber": parsed_data["phonenumber"],
+                "emailaddress": parsed_data["emailaddress"],
+                "ha_token": parsed_data["ha_token"],
+                "ha_url": parsed_data["ha_url"],
+                "ai_key": parsed_data["ai_key"],
+                "ai_model": parsed_data["ai_model"],
+                "email": parsed_data["emailaddress"],
+                "username": parsed_data["emailaddress"],
+                "systemid": system_id,
+                "customerid": customer_id,
+                "id_token": id_token,
+                "influx_url": parsed_data["influx_url"],
+                "influx_token": parsed_data["influx_token"],
+                "influx_bucket": parsed_data["influx_bucket"],
+                "influx_org": parsed_data["influx_org"],
+                "DaysHistoryToKeep": parsed_data["DaysHistoryToKeep"],
+                "LowTemperatureWarning": parsed_data["LowTemperatureWarning"],
+                "HighTemperatureWarning": parsed_data["HighTemperatureWarning"],
+                "LowHumidityWarning": parsed_data["LowHumidityWarning"],
+                "HighHumidityWarning": parsed_data["HighHumidityWarning"],
+                "cloudflare_token": parsed_data["cloudflare_token"],
+                "address_json": parsed_data["address_json"],
+                "systemphotolurl": parsed_data["systemphotolurl"],
+                "testmode": parsed_data["testmode"],
+                "additional_contacts_json": parsed_data["additional_contacts_json"],
+                "instructions_json": parsed_data["instructions_json"],
+                "plan": parsed_data["name"],
+                "trial_expiration": parsed_data["trial_expiration"],
+            }
+        except OasiraAPIError as e:
+            _LOGGER.error("Failed to fetch customer/system data: %s", e)
+            raise HomeAssistantError(f"Failed to fetch customer/system data: {e}") from e
+
+    #ha_url = hass.data[DOMAIN]["ha_url"]    
+
+    #hass.states.async_set("sensor.customerid", customer_id, {"dev_mode": "off"})
+    #hass.states.async_set("sensor.systemid", system_id, {"dev_mode": "off"})
+    #hass.states.async_set("sensor.ha_url", ha_url, {"dev_mode": "off"})
+#    hass.states.async_set("sensor.user", username, {"dev_mode": "off"})
+
+    device_registry = dr.async_get(hass)
+    device_registry.async_get_or_create(
+        config_entry_id=entry.entry_id,
+        identifiers={(DOMAIN, NAME)},
+        name=NAME,
+        manufacturer=NAME,
+        model=NAME,
+    )
+
+    ##### Get all the system's users and their roles and create entities for each ######
+    hass.data[DOMAIN]["persons"]: List[eh_person] = []
+
+    # Fetch system users using API client
+    async with OasiraAPIClient(
+        system_id=system_id,
+        id_token=id_token,
+    ) as api_client:
+        try:
+            users = await api_client.get_system_users()
+            
+            if users:
+                for user in users:
+                    person = eh_person(
+                        hass,
+                        email=user["user_email"]
+                    )
+
+                    hass.data[DOMAIN]["persons"].append(person)
+
+                    # Create Home Assistant person entity using person component
+                    person_id = user["user_email"].lower().replace('@', '_').replace('.', '_')
+                    entity_id = f"person.{person_id}"
+                    
+                    # Create Home Assistant person entity using person component
+                    try:
+                        person_data = hass.data.get("person")
+                        if person_data is not None:
+                            # person_data is a tuple: (EntityComponent, StorageCollection)
+                            # We need the StorageCollection which is the second element
+                            if isinstance(person_data, tuple) and len(person_data) > 1:
+                                storage_collection = person_data[1]
+                            else:
+                                # Fallback if it's a different structure
+                                storage_collection = person_data.get("storage_collection") if hasattr(person_data, "get") else None
+                            
+                            if storage_collection is not None:
+                                # Check if person already exists
+                                existing = None
+                                try:
+                                    items = storage_collection.async_items()
+                                    # async_items() returns list of tuples or dict items
+                                    for item in items:
+                                        # Handle both tuple (id, data) and dict formats
+                                        if isinstance(item, tuple):
+                                            item_id, item_data = item
+                                            if item_id == person_id or (isinstance(item_data, dict) and item_data.get("id") == person_id):
+                                                existing = item_data
+                                                break
+                                        elif isinstance(item, dict):
+                                            if item.get("id") == person_id:
+                                                existing = item
+                                                break
+                                except Exception as ex:
+                                    _LOGGER.debug("[EffortlessHome] Error checking existing persons: %s", ex)
+                                
+                                if not existing:
+                                    await storage_collection.async_create_item({
+                                        "id": person_id,
+                                        "name": user["user_email"],
+                                        "device_trackers": [],
+                                        "user_id": None,
+                                    })
+                                    _LOGGER.info("[EffortlessHome] Created HA person entity: %s for %s", entity_id, user["user_email"])
+                                else:
+                                    _LOGGER.info("[EffortlessHome] Person entity already exists: %s", entity_id)
+                    except Exception as e:
+                        _LOGGER.warning("[EffortlessHome] Could not create person entity for %s: %s", user["user_email"], e)
+                        import traceback
+                        _LOGGER.debug("[EffortlessHome] Full traceback: %s", traceback.format_exc())
+                        
+        except OasiraAPIError as e:
+            _LOGGER.error("Failed to fetch system users: %s", e)
+            # Continue even if we can't fetch users
+
+    await hass.config_entries.async_forward_entry_setups(
+        entry,
+        [
+            "switch",
+            "binary_sensor",
+            "sensor",
+            "cover",
+            "light",
+            "alarm_control_panel",
+            "tts",
+            "text",
+            "ai_task"
+            ,"button"
+        ],
+    )
+
+    # Unregister if already registered
+    webhook.async_unregister(hass, "effortlesshome_location_update")
+    webhook.async_unregister(hass, "effortlesshome_push_token")
+    webhook.async_unregister(hass, "effortlesshome_broadcast")
+    webhook.async_unregister(hass, "effortlesshome_track_device_update")
+    webhook.async_unregister(hass, "effortlesshome_health_data")
+
+    security_webhook = SecurityAlarmWebhook(hass)
+    await SecurityAlarmWebhook.async_setup_webhook(security_webhook)
+
+    broadcast_webhook = BroadcastWebhook(hass)
+    await BroadcastWebhook.async_setup_webhook(broadcast_webhook)
+
+    webhook_id = "effortlesshome_push_token"
+
+    webhook.async_register(
+        hass,
+        DOMAIN,
+        "EffortlessHome Push Token",
+        webhook_id,
+        handle_effortlesshome_push_token_webhook,
+    )
+
+    webhook_id = "effortlesshome_location_update"
+
+    webhook.async_register(
+        hass,
+        DOMAIN,
+        "EffortlessHome Location Update",
+        webhook_id,
+        handle_effortlesshome_location_update_webhook,
+    )
+
+    _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
+
+    webhook_id = "effortlesshome_track_device_update"
+
+    webhook.async_register(
+        hass,
+        DOMAIN,
+        "EffortlessHome Tracking Devices",
+        webhook_id,
+        handle_set_person_location_devices,
+    )
+
+    _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
+
+    webhook_id = "effortlesshome_health_data"
+
+    webhook.async_register(
+        hass,
+        DOMAIN,
+        "EffortlessHome Health Data",
+        webhook_id,
+        handle_effortlesshome_health_data_webhook,
+    )
+
+    _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
+
+    register_services(hass)
+
+    # Initialize the Motion Sensor Grouper
+    grouper = MotionSensorGrouper(hass)
+
+    # Create groups for motion sensors
+    await grouper.create_sensor_groups()
+    await grouper.create_security_sensor_group()
+
+    # Removed deploy_latest_config(hass) from initialization. Now triggered by button entity.
+    label_registry = lr.async_get(hass)
+
+    for desired in LABELS:
+        try:
+            label_registry.async_create(desired)
+            _LOGGER.info("Created missing label: %s", desired)
+        except ValueError:
+            # Label already exists → ignore
+            _LOGGER.info("Label already exists: %s", desired)
+    
+    await async_setup_energy_advisor(hass)
+
+    async def after_home_assistant_started(event):
+        """Call this function after Home Assistant has started."""
+        await loaddevicegroups(None)
+
+        #TODO: Update the link below with the actual add-on slug
+        notify_create(
+            hass,
+            title="EffortlessHome Add-on Required",
+            message=(
+                "The EffortlessHome integration needs the EffortlessHome Add-on. "
+                "Click [here](https://my.home-assistant.io/redirect/supervisor_addon/?addon=<your_slug>) to install it."
+            ),
+        )
+
+    # Listen for the 'homeassistant_started' event
+    hass.bus.async_listen_once(
+        homeassistant.core.EVENT_HOMEASSISTANT_STARTED, after_home_assistant_started
+    )
+
+    # Start Firebase token refresh task (refresh every 50 minutes, tokens expire in 60 minutes)
+    async def refresh_firebase_token():
+        """Periodically refresh the Firebase ID token."""
+        refresh_token = entry.data.get("refresh_token")
+        
+        if not refresh_token:
+            _LOGGER.warning("No refresh token available - cannot refresh Firebase token")
+            return
+        
+        while True:
+            try:
+                # Wait 50 minutes before refreshing (tokens expire in 60 minutes)
+                await asyncio.sleep(50 * 60)
+                
+                _LOGGER.info("Refreshing Firebase ID token...")
+                
+                async with OasiraAPIClient() as api_client:
+                    result = await api_client.firebase_refresh_token(refresh_token)
+                    
+                    new_id_token = result.get("idToken")
+                    new_refresh_token = result.get("refreshToken")
+                    
+                    if new_id_token:
+                        # Update the token in hass.data
+                        hass.data[DOMAIN]["id_token"] = new_id_token
+                        
+                        # Update the config entry data
+                        hass.config_entries.async_update_entry(
+                            entry,
+                            data={
+                                **entry.data,
+                                "id_token": new_id_token,
+                                "refresh_token": new_refresh_token or refresh_token,
+                            }
+                        )
+                        
+                        # Update the refresh token for next iteration
+                        if new_refresh_token:
+                            refresh_token = new_refresh_token
+                        
+                        _LOGGER.info("✅ Firebase ID token refreshed successfully")
+                    else:
+                        _LOGGER.error("Failed to refresh Firebase token - no idToken in response")
+                        
+            except OasiraAPIError as e:
+                _LOGGER.error("Failed to refresh Firebase token: %s", e)
+                # Continue trying even if refresh fails
+            except Exception as e:
+                _LOGGER.exception("Unexpected error refreshing Firebase token: %s", e)
+    
+    # Start the refresh task
+    hass.async_create_task(refresh_firebase_token())
+
+    return True
+
+async def deploy_latest_config(hass: HomeAssistant):
+    # deploy latest: theme, cards, blueprints, etc.
+    print("in deploy latest config")
+
+    integration_dir = os.path.dirname(os.path.abspath(__file__))
+
+    source_themes_dir = os.path.join(integration_dir, "themes")
+    source_blueprints_dir = os.path.join(integration_dir, "blueprints")
+    source_packages_dir = os.path.join(integration_dir, "packages")
+    source_dir = os.path.join(integration_dir, "www/effortlesshome")  #+ DOMAIN) #TODO: Jermie fix this
+    source_dashboard_dir = os.path.join(integration_dir, "dashboards")
+
+    target_themes_dir = "/config/themes"
+    target_dir = "/config/www/effortlesshome" #+ DOMAIN #TODO: Jermie fix this
+    target_blueprints_dir = "/config/blueprints"
+    target_packages_dir = "/config/packages"
+    target_dashboard_dir = "/config/dashboards"
+
+    # Ensure destination directories exist
+    #os.makedirs(target_themes_dir, exist_ok=True)
+    os.makedirs(target_dir, exist_ok=True)
+    os.makedirs(target_blueprints_dir, exist_ok=True)
+    #os.makedirs(target_packages_dir, exist_ok=True)
+    #os.makedirs(target_dashboard_dir, exist_ok=True)
+
+    # Copy entire themes directory including subfolders and files
+    #if os.path.exists(source_themes_dir):
+    #    shutil.copytree(source_themes_dir, target_themes_dir, dirs_exist_ok=True)
+
+    #if os.path.exists(source_packages_dir):
+    #    shutil.copytree(source_packages_dir, target_packages_dir, dirs_exist_ok=True)
+
+    if os.path.exists(source_blueprints_dir):
+        shutil.copytree(
+            source_blueprints_dir, target_blueprints_dir, dirs_exist_ok=True
+        )
+
+    #if os.path.exists(source_dir):
+    #    shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+
+    #if os.path.exists(source_dashboard_dir):
+    #    shutil.copytree(source_dashboard_dir, target_dashboard_dir, dirs_exist_ok=True)
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
+    """Unload a config entry."""
+
+    await hass.config_entries.async_unload_platforms(
+        entry,
+        [
+            "switch",
+            "binary_sensor",
+            "sensor",
+            "cover",
+            "light",
+            "alarm_control_panel",
+            "tts",
+            "text",
+            "ai_task",
+            "button",
+        ],        
+    )
+
+    webhook.async_unregister(hass, "effortlesshome_location_update")
+    webhook.async_unregister(hass, "effortlesshome_push_token")
+    webhook.async_unregister(hass, "effortlesshome_broadcast")
+    webhook.async_unregister(hass, "effortlesshome_track_device_update")
+    webhook.async_unregister(hass, "effortlesshome_health_data")
+
+    return True
+
+async def async_init(hass: HomeAssistant, entry: ConfigEntry, auto_area: AutoArea):
+    """Initialize component."""
+    await asyncio.sleep(5)  # wait for all area devices to be initialized
+
+    return True
+
+@callback
+def register_services(hass) -> None:
+    """Register security services."""
+
+    @callback
+    async def createcleanmotionfilesservice(call: ServiceCall) -> None:
+        await cleanmotionfiles(call)
+
+    hass.services.async_register(
+        DOMAIN, "createcleanmotionfilesservice", cleanmotionfiles
+    )
+
+    @callback
+    async def notify_person_service(call: ServiceCall) -> None:
+        await handle_notify_person_service(call)
+
+    hass.services.async_register(
+        DOMAIN,
+        "notify_person_service",
+        handle_notify_person_service,
+    )
+
+    @callback
+    async def remove_person_devices_service(call: ServiceCall) -> None:
+        await handle_remove_person_devices_service(call)
+
+    hass.services.async_register(
+        DOMAIN,
+        "remove_person_devices_service",
+        handle_remove_person_devices_service,
+    )
+
+    @callback
+    async def createeventservice(call: ServiceCall) -> None:
+        await createevent(call)
+
+    @callback
+    async def cancelalarmservice(call: ServiceCall) -> None:
+        await cancelalarm(call)
+
+    @callback
+    async def getalarmstatusservice(call: ServiceCall) -> None:
+        await getalarmstatus(call)
+
+    @callback
+    async def confirmpendingalarmservice(call: ServiceCall) -> None:
+        await confirmpendingalarm(call)
+
+    # Register our service with Home Assistant.
+    hass.services.async_register(DOMAIN, "createeventservice", createevent)
+    hass.services.async_register(DOMAIN, "cancelalarmservice", cancelalarm)
+    hass.services.async_register(DOMAIN, "getalarmstatusservice", getalarmstatus)
+    hass.services.async_register(
+        DOMAIN, "confirmpendingalarmservice", confirmpendingalarm
+    )
+
+    hass.services.async_register(DOMAIN, "update_entity", update_entity)
+
+    @callback
+    async def create_alert_service(call: ServiceCall) -> None:
+        await createalert(call)
+
+    hass.services.async_register(DOMAIN, "create_alert_service", createalert)
+
+
+    @callback
+    async def deploylatestconfig(call: ServiceCall) -> None:
+        await handle_deploy_latest_config(call)
+
+    hass.services.async_register(DOMAIN, "deploylatestconfig", handle_deploy_latest_config)
+
+    @callback
+    async def set_in_bed_state(call: ServiceCall) -> None:
+        await handle_set_in_bed_state(call)
+
+    hass.services.async_register(
+        DOMAIN,
+        "set_in_bed_state",
+        handle_set_in_bed_state,
+    )
+
+    @callback
+    async def add_label_to_entity(call: ServiceCall) -> None:
+        """Add a label to an entity."""
+        entity_id = call.data.get("entity_id")
+        label = call.data.get("label")
+
+        if not entity_id or not label:
+            _LOGGER.error(
+                "entity_id and label are required for add_label_to_entity service"
+            )
+            return
+
+        ent_reg = er.async_get(hass)
+        entity_entry = ent_reg.async_get(entity_id)
+
+        if not entity_entry:
+            _LOGGER.error(f"Entity not found: {entity_id}")
+            return
+
+        new_labels = set(entity_entry.labels)
+        new_labels.add(label)
+
+        ent_reg.async_update_entity(entity_id, labels=new_labels)
+        _LOGGER.info(f"Added label '{label}' to entity '{entity_id}'")
+
+    hass.services.async_register(
+        DOMAIN,
+        "add_label_to_entity",
+        add_label_to_entity,
+        schema=vol.Schema(
+            {vol.Required("entity_id"): cv.entity_id, vol.Required("label"): cv.string}
+        ),
+    )
+
+async def update_entity(call):
+    """Handle the service call."""
+    entity_id = call.data.get("entity_id")
+    new_area = call.data.get("area_id")
+
+    hass = HASSComponent.get_hass()
+    ent_reg = entity_registry.async_get(hass)
+
+    ent_reg.async_update_entity(entity_id, area_id=new_area)
+
+async def loaddevicegroups(calldata) -> None:  
+    """Load device groups."""
+    hass = HASSComponent.get_hass()
+    await async_setup_devicegroup(hass)
+
+async def createevent(calldata) -> None:  
+    """Create event."""
+    _LOGGER.info("create event calldata =" + str(calldata.data))
+
+    hass = HASSComponent.get_hass()
+
+    devicestate = hass.states.get(calldata.data["entity_id"])
+    sensor_device_class = None
+    sensor_device_name = None
+
+    if devicestate and devicestate.attributes.get("friendly_name"):
+        sensor_device_name = devicestate.attributes["friendly_name"]
+
+    if devicestate and devicestate.attributes.get("device_class"):
+        sensor_device_class = devicestate.attributes["device_class"]
+
+    if sensor_device_class is not None and sensor_device_name is not None:
+        alarmstate = hass.data[DOMAIN]["alarm_id"]
+
+        if alarmstate is not None and alarmstate != "":
+            alarmstatus = hass.data[DOMAIN]["alarmstatus"]
+
+            if alarmstatus == "ACTIVE":
+                alarmid = hass.data[DOMAIN]["alarm_id"]
+                _LOGGER.info("alarm id =" + alarmid)
+
+                # Call the API to create event
+                systemid = hass.data[DOMAIN]["systemid"]
+                id_token = hass.data[DOMAIN].get("id_token")
+
+                event_data = {
+                    "sensor_device_class": sensor_device_class,
+                    "sensor_device_name": sensor_device_name,
+                }
+
+                _LOGGER.info("Calling create event API with payload: %s", event_data)
+
+                async with OasiraAPIClient(
+                    system_id=systemid,
+                    id_token=id_token,
+                ) as api_client:
+                    try:
+                        result = await api_client.create_event(alarmid, event_data)
+                        _LOGGER.info("API response content: %s", result)
+                        return result
+                    except OasiraAPIError as e:
+                        _LOGGER.error("Failed to create event: %s", e)
+                        return None
+            return None
+        return None
+    return None
+
+async def createalert(calldata) -> None:  
+    """Create alert."""
+    _LOGGER.info("create alert calldata =" + str(calldata.data))
+
+    hass = HASSComponent.get_hass()
+    alert_type = calldata.data["alert_type"]
+    alert_description = calldata.data["alert_description"]
+    status = calldata.data["status"]
+
+    alert_data = {
+        "alert_type": alert_type,
+        "alert_description": alert_description,
+        "status": status,
+    }
+
+    # Call the API to create alert
+    systemid = hass.data[DOMAIN]["systemid"]  
+    id_token = hass.data[DOMAIN].get("id_token")
+
+    _LOGGER.info("Calling alert API with payload: %s", alert_data)
+
+    async with OasiraAPIClient(
+        system_id=systemid,
+        id_token=id_token,
+    ) as api_client:
+        try:
+            result = await api_client.create_alert(alert_data)
+            _LOGGER.info("API response content: %s", result)
+            return result
+        except OasiraAPIError as e:
+            _LOGGER.error("Failed to create alert: %s", e)
+            return None
+
+async def cancelalarm(calldata):
+    """Cancel alarm."""
+    hass = HASSComponent.get_hass()
+    return await async_cancelalarm(hass)
+
+async def getalarmstatus(calldata):
+    """Get alarm status."""
+    hass = HASSComponent.get_hass()
+
+    return await async_getalarmstatus(hass)
+
+async def confirmpendingalarm(calldata):
+    """Confirm pending alarm."""
+    hass = HASSComponent.get_hass()
+
+    return await async_confirmpendingalarm(hass)
+
+
+async def cleanmotionfiles(calldata):
+    """Execute the shell command to delete old snapshots."""
+
+    age = "30"
+
+    try:
+        age = calldata.data["age"]
+    except:
+        _LOGGER.error("Invalid Args To Clean Motion Service. Using Default 30 days")
+
+    command = "find /media/snapshots/* -mtime +" + str(age) + " -exec rm {} \\;"
+
+    # Use subprocess to execute the shell command
+    process = subprocess.run(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+    )
+
+    if process.returncode == 0:
+        _LOGGER.info("Successfully deleted old snapshots.")
+    else:
+        _LOGGER.error(f"Error deleting snapshots: {process.stderr.decode()}")
+
+
+async def handle_remove_person_devices_service(calldata):
+    """Handle remove person devices service."""
+
+    _LOGGER.info("In handle_remove_person_devices_service")
+
+    hass = HASSComponent.get_hass()
+    entity_id = calldata.data.get("entity_id")
+
+    if not entity_id:
+        _LOGGER.info("No person provided")
+        return
+
+    persons = hass.data.get(DOMAIN, {}).get("persons", [])
+
+    for i, person in enumerate(persons):
+        if person.entity_id == entity_id:
+            _LOGGER.info("Removing person devices: %s", entity_id)
+            await person.async_remove_notification_devices(hass)
+            return
+
+    _LOGGER.info("Person not found: %s", entity_id)
+
+async def handle_notify_person_service(calldata):
+    """Send a notification message only to a person’s Mobile App device trackers."""
+    _LOGGER.info("In async_send_message")
+
+    hass = HASSComponent.get_hass()
+    entity_id = calldata.data.get("target")
+
+    if not entity_id:
+        _LOGGER.info("No person provided")
+        return
+
+    message = calldata.data.get("message")
+    if not message:
+        _LOGGER.info("No message provided")
+        return
+
+    title = calldata.data.get("title")
+    data = calldata.data.get("data")
+
+    targetperson = None
+    persons = hass.data.get(DOMAIN, {}).get("persons", [])
+    for person in persons:
+        if person.entity_id == entity_id:
+            targetperson = person
+            break
+
+    if targetperson is not None:
+        _LOGGER.info("[EffortlessHome] Push Notification Target Person: "+ targetperson.name)
+        await targetperson.async_send_notification(message, title, data)     
+        
+    else:
+        _LOGGER.info("[EffortlessHome] No matching person found for entity_id: "+ entity_id)
+        return
+
+async def handle_deploy_latest_config(call: ServiceCall) -> None:
+    """Handle the service call."""
+    hass = HASSComponent.get_hass()
+
+    await deploy_latest_config(hass)
+
+async def handle_set_in_bed_state(call):
+    area_id = call.data.get("area_id")
+    state = call.data.get("state")
+
+    await updateEntity(area_id, state)
+
+
+async def handle_effortlesshome_location_update_webhook(hass, webhook_id, request):
+    """Register EffortlessHome location update service."""
+
+    _LOGGER.info("[EffortlessHome] 📍 Handling location update webhook")
+    _LOGGER.info("[EffortlessHome] Request headers: %s", dict(request.headers))
+
+    try:
+        data = await request.json()
+        _LOGGER.info("[EffortlessHome] 📍 Location update payload: %s", data)
+    except Exception as e:
+        _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
+        return web.Response(status=400, text="Invalid JSON")
+
+    ####TODO: get user's email here and link this device tracker to them (local and online) #####
+
+    device_id = data.get("device_id")
+    lat = data.get("latitude")
+    lon = data.get("longitude")
+    accuracy = data.get("accuracy", 30.0)
+
+    _LOGGER.info("[EffortlessHome] 📍 Parsed data - device_id: %s, lat: %s, lon: %s, accuracy: %s", device_id, lat, lon, accuracy)
+
+    if not device_id or lat is None or lon is None:
+        _LOGGER.error("[EffortlessHome] ❌ Missing required fields - device_id: %s, lat: %s, lon: %s", device_id, lat, lon)
+        return web.Response(status=400, text="Missing required fields")
+
+    device_id_new = device_id.lower().replace('@', '_').replace('.', '_')
+    entity_id = f"device_tracker.{device_id_new}"
+
+    _LOGGER.info("[EffortlessHome] 📍 Creating/updating device tracker: %s", entity_id)
+
+    # Update or create entity
+    hass.states.async_set(
+        entity_id,
+        "home",  # You can change this dynamically later
+        {
+            "latitude": lat,
+            "longitude": lon,
+            "gps_accuracy": accuracy,
+            "source_type": SOURCE_TYPE_GPS,
+            "friendly_name": f"EffortlessHome {device_id_new.title()}",
+        },
+    )
+
+    _LOGGER.info("[EffortlessHome] ✅ Location update successful for %s", entity_id)
+    return web.json_response({"status": "success", "message": "Location updated"})
+
+#sampledata
+#{
+#    email: 
+#    token: 
+#    device_name: master_bedroom_tv
+#    platform: android
+#}
+
+async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
+    """Handle incoming EffortlessHome Push Token webhook (device token)."""
+
+    _LOGGER.info("[EffortlessHome] 🔔 Handling push token webhook")
+    _LOGGER.info("[EffortlessHome] Request headers: %s", dict(request.headers))
+
+    try:
+        data = await request.json()
+        _LOGGER.info("[EffortlessHome] 🔔 Push token payload: %s", {k: v if k != 'token' else f"{v[:20]}..." for k, v in data.items()})
+    except Exception as e:
+        _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
+        return web.Response(status=400, text="Invalid JSON")
+
+    email = data.get("email")
+    token = data.get("token")
+    device_name = data.get("device_name")
+    platform_name = data.get("platform")
+
+    _LOGGER.info("[EffortlessHome] 🔔 Parsed data - email: %s, device_name: %s, platform: %s, token_length: %s", 
+                 email, device_name, platform_name, len(token) if token else 0)
+
+    if not email:
+        _LOGGER.error("[EffortlessHome] ❌ Webhook called without 'email' field.")
+        return web.Response(status=400, text="Missing email field")
+
+    persons = hass.data.get(DOMAIN, {}).get("persons", [])
+    _LOGGER.info("[EffortlessHome] 🔔 Searching for person among %s registered persons", len(persons))
+    
+    targetperson = None
+    for person in persons:
+        if person.name == email:
+            targetperson = person
+            break
+
+    if targetperson is not None:
+        _LOGGER.info("[EffortlessHome] 🔔 Found target person: %s", targetperson.name)
+        await targetperson.async_set_notification_devices(hass, token, device_name, platform_name)
+        _LOGGER.info("[EffortlessHome] ✅ Push token registered successfully for %s", email)
+        return web.json_response({"status": "success", "message": "Token registered"})
+    else:
+        _LOGGER.warning("[EffortlessHome] ❌ Person not found for email: %s (available: %s)", 
+                       email, [p.name for p in persons])
+        return web.Response(status=404, text="Person not found")
+
+async def handle_set_person_location_devices(hass, webhook_id, request):
+    """Handle incoming webhook."""
+
+    _LOGGER.info("[EffortlessHome] 📱 Handling set person tracking devices webhook")
+    _LOGGER.info("[EffortlessHome] Request headers: %s", dict(request.headers))
+
+    try:
+        data = await request.json()
+        _LOGGER.info("[EffortlessHome] 📱 Tracking devices payload: %s", data)
+    except Exception as e:
+        _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
+        return web.Response(status=400, text="Invalid JSON")
+
+    email = data.get("email")
+    inhometracker = data.get("inhometracker")
+    remotetracker = data.get("remotetracker")
+
+    _LOGGER.info("[EffortlessHome] 📱 Parsed data - email: %s, inhometracker: %s, remotetracker: %s", 
+                 email, inhometracker, remotetracker)
+
+    if not email:
+        _LOGGER.error("[EffortlessHome] ❌ Set Person Location Devices Webhook called without 'email' field.")
+        return web.Response(status=400, text="Missing email field")
+
+    persons = hass.data.get(DOMAIN, {}).get("persons", [])
+    _LOGGER.info("[EffortlessHome] 📱 Searching for person among %s registered persons", len(persons))
+    
+    targetperson = None
+    for person in persons:
+        if person.name == email:
+            targetperson = person
+            break
+
+    if targetperson is not None:
+        _LOGGER.info("[EffortlessHome] 📱 Found target person: %s", targetperson.name)
+        
+        if inhometracker is not None and inhometracker != "":
+            _LOGGER.info("[EffortlessHome] 📱 Setting local tracker: %s", inhometracker)
+            await targetperson.async_set_local_tracker(inhometracker)
+        else:
+            _LOGGER.info("[EffortlessHome] 📱 No inhometracker provided or empty")
+        
+        if remotetracker is not None and remotetracker != "":
+            _LOGGER.info("[EffortlessHome] 📱 Setting remote tracker: %s", remotetracker)
+            await targetperson.async_set_remote_tracker(remotetracker)
+        else:
+            _LOGGER.info("[EffortlessHome] 📱 No remotetracker provided or empty")
+        
+        _LOGGER.info("[EffortlessHome] ✅ Tracking devices updated successfully for %s", email)
+        return web.json_response({"status": "success", "message": "Tracking devices updated"})
+    else:
+        _LOGGER.warning("[EffortlessHome] ❌ Person not found for email: %s (available: %s)", 
+                       email, [p.name for p in persons])
+        return web.Response(status=404, text="Person not found")
+
+
+async def handle_effortlesshome_health_data_webhook(hass, webhook_id, request):
+    """Handle incoming health data from mobile devices."""
+
+    _LOGGER.info("[EffortlessHome] 🏥 Handling health data webhook")
+    _LOGGER.info("[EffortlessHome] Request headers: %s", dict(request.headers))
+
+    try:
+        data = await request.json()
+        _LOGGER.info("[EffortlessHome] 🏥 Health data payload: %s", {k: v for k, v in data.items() if k != 'email'})
+    except Exception as e:
+        _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
+        return web.Response(status=400, text="Invalid JSON")
+
+    email = data.get("email")
+    timestamp = data.get("timestamp")
+
+    _LOGGER.info("[EffortlessHome] 🏥 Processing health data for: %s at %s", email, timestamp)
+
+    if not email:
+        _LOGGER.error("[EffortlessHome] ❌ Missing required field: email")
+        return web.Response(status=400, text="Missing required field: email")
+
+    # Find the person entity
+    persons = hass.data.get(DOMAIN, {}).get("persons", [])
+    _LOGGER.info("[EffortlessHome] 🏥 Searching for person among %s registered persons", len(persons))
+    
+    targetperson = None
+    for person in persons:
+        if person.name == email:
+            targetperson = person
+            break
+
+    if targetperson is None:
+        _LOGGER.warning("[EffortlessHome] ❌ Person not found for email: %s (available: %s)", 
+                       email, [p.name for p in persons])
+        return web.Response(status=404, text="Person not found")
+
+    _LOGGER.info("[EffortlessHome] 🏥 Found target person: %s", targetperson.name)
+
+    # Store health data on the person entity
+    await targetperson.async_update_health_data(data)
+
+    # Create/update sensor entities for each health metric
+    health_metrics = {
+        "stepCount": ("steps", "mdi:walk", "steps"),
+        "heartRate": ("bpm", "mdi:heart-pulse", "measurement"),
+        "sleepHours": ("h", "mdi:sleep", "measurement"),
+        "activeMinutes": ("min", "mdi:run", "measurement"),
+        "distance": ("m", "mdi:map-marker-distance", "measurement"),
+        "caloriesBurned": ("kcal", "mdi:fire", "measurement"),
+        "bloodPressureSystolic": ("mmHg", "mdi:heart-pulse", "measurement"),
+        "bloodPressureDiastolic": ("mmHg", "mdi:heart-pulse", "measurement"),
+        "bloodOxygen": ("%", "mdi:water-percent", "measurement"),
+        "bodyTemperature": ("°C", "mdi:thermometer", "measurement"),
+        "weight": ("kg", "mdi:weight-kilogram", "measurement"),
+        "height": ("cm", "mdi:human-male-height", "measurement"),
+    }
+
+    email_sanitized = email.lower().replace('@', '_').replace('.', '_')
+    sensors_updated = 0
+
+    for metric_key, (unit, icon, state_class) in health_metrics.items():
+        value = data.get(metric_key)
+        
+        if value is not None:
+            entity_id = f"sensor.effortlesshome_health_{email_sanitized}_{metric_key.lower()}"
+            friendly_name = f"EffortlessHome Health {metric_key.replace('_', ' ').title()} ({email})"
+
+            _LOGGER.debug("[EffortlessHome] 🏥 Creating/updating sensor: %s = %s %s", entity_id, value, unit)
+
+            hass.states.async_set(
+                entity_id,
+                value,
+                {
+                    "unit_of_measurement": unit,
+                    "friendly_name": friendly_name,
+                    "icon": icon,
+                    "state_class": state_class,
+                    "device_class": metric_key.lower(),
+                    "last_updated": timestamp,
+                    "source": "effortlesshome_mobile_app",
+                },
+            )
+            sensors_updated += 1
+
+    _LOGGER.info("[EffortlessHome] ✅ Health data processed successfully for %s - %s sensors updated", email, sensors_updated)
+    return web.json_response({
+        "status": "success", 
+        "message": f"Health data processed - {sensors_updated} metrics updated",
+        "sensors_updated": sensors_updated
+    })
