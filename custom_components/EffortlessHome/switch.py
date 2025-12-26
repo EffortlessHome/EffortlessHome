@@ -20,7 +20,6 @@ from .auto_area import AutoArea
 from .const import DOMAIN, NAME
 from .medication_tracking import MedicationTrackingSwitch
 from .motion_notification import MotionNotificationsSwitch
-from .renter_occupied import RenterOccupiedSwitch
 from .sleep_mode import SleepModeSwitch
 from .smart_appliance_conversion import SmartApplianceConversionSwitch
 from datetime import timedelta
@@ -49,13 +48,9 @@ async def async_setup_entry(
         [
             # PresenceLockSwitch(auto_area),
             SleepModeSwitch(),
-            RenterOccupiedSwitch(),
             MotionNotificationsSwitch(),
             MedicalAlertAlarmSwitch("medicalalertalarm"),
             MonitoringAlarmSwitch("monitoringalarm"),
-            MedicationTrackingSwitch("medicationtracking1"),
-            MedicationTrackingSwitch("medicationtracking2"),
-
             SmartApplianceConversionSwitch("SmartAppliance1"),
             SmartApplianceConversionSwitch("SmartAppliance2"),
 

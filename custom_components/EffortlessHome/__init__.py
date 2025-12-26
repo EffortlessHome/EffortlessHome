@@ -291,10 +291,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "cover",
             "light",
             "alarm_control_panel",
-            "tts",
-            "text",
-            "ai_task"
-            ,"button"
+            "button"
         ],
     )
 
@@ -377,8 +374,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Label already exists → ignore
             _LOGGER.info("Label already exists: %s", desired)
     
-    await async_setup_energy_advisor(hass)
-
     async def after_home_assistant_started(event):
         """Call this function after Home Assistant has started."""
         await loaddevicegroups(None)
@@ -508,9 +503,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
             "cover",
             "light",
             "alarm_control_panel",
-            "tts",
-            "text",
-            "ai_task",
             "button",
         ],        
     )

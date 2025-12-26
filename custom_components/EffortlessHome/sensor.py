@@ -33,7 +33,7 @@ from .virtualpowersensor import (
     TotalEnergySensor,
 )
 
-from .effortlesshomepersonsensor import eh_personSensor
+from .personsensor import eh_personSensor
 
 from .const import DOMAIN, NAME
 

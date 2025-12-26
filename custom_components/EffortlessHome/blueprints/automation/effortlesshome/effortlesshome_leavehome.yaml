@@ -65,10 +65,6 @@ trigger:
       hours: 0
       minutes: 0
       seconds: !input leave_trigger_delay
-condition:
-  - condition: state
-    entity_id: binary_sensor.renter_occupied
-    state: "off"
 action:
   - service: alarm_control_panel.alarm_arm_away
     target:

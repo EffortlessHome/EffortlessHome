@@ -33,16 +33,12 @@ async def async_setup_entry(
     async_add_entities([MonitoringAlarm()])
     async_add_entities([SleepingSensor()])
     async_add_entities([SomeoneHomeSensor()])
-    async_add_entities([RenterOccupiedSensor()])
     async_add_entities([SmokeGroup()])
     async_add_entities([MoistureGroup()])
     async_add_entities([CarbonMonoxideGroup()])
     async_add_entities([DoorGroup()])
     async_add_entities([WindowGroup()])
     async_add_entities([SecurityMotionGroup()])
-    async_add_entities([MedicationTrackingSensor("medicationtracking1")])
-    async_add_entities([MedicationTrackingSensor("medicationtracking2")])
-    async_add_entities([MedicationTrackingSensor("medicationtracking3")])
     async_add_entities([MotionNotifcationSensor()])
     async_add_entities([SmartApplianceSensor("smartappliance1")])
     async_add_entities([SmartApplianceSensor("smartappliance2")])
@@ -713,137 +709,15 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
         if motion_sensor_state is not None:
             motion_sensor_state_val = motion_sensor_state.state
 
-        entity_id = "switch.renter_occupied"
-
-        # Get the state of the entity
-        state = self.hass.states.get(entity_id)
-
-        renter_occupied_state = "off"
-
-        if state is not None:
-            # Get the state value (e.g., "on" or "off")
-            renter_occupied_state = state.state
 
         if (
             home > 0
             or motion_sensor_state_val.lower() == "on" 
-            or renter_occupied_state.lower() == "on"
         ):
             self._state = "on"
         else:
             self._state = "off"
 
-
-class RenterOccupiedSensor(BinarySensorEntity, RestoreEntity):
-    """Representation of a sensor."""
-
-    @property
-    def device_info(self):
-        """Return information about the device."""
-        return {
-            "identifiers": {(DOMAIN, NAME)},
-            "name": NAME,
-            "manufacturer": NAME,
-        }
-
-    def __init__(self) -> None:
-        """Initialize the sensor."""
-        self._state = "off"
-
-    @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return "Renter Occupied Sensor"
-
-    @property
-    def unique_id(self) -> str:
-        """Return the unique ID of the sensor."""
-        return "renter_occupied"
-
-    @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
-        return self._state
-
-    @property
-    def icon(self):
-        # Return the specified icon or a default one
-        return "mdi:home-clock-outline"
-
-    def update(self) -> None:
-        """Fetch new state data for the sensor.
-
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        entity_id = "switch.renter_occupied"
-
-        # Get the state of the entity
-        state = self.hass.states.get(entity_id)
-
-        if state is not None:
-            # Get the state value (e.g., "on" or "off")
-            switch_state = state.state
-            _LOGGER.info(f"The state of {entity_id} is: {switch_state}")
-            self._state = switch_state
-        else:
-            self._state = "off"
-
-
-class MedicationTrackingSensor(BinarySensorEntity, RestoreEntity):
-    """Representation of a sensor."""
-
-    @property
-    def device_info(self):
-        """Return information about the device."""
-        return {
-            "identifiers": {(DOMAIN, NAME)},
-            "name": NAME,
-            "manufacturer": NAME,
-        }
-
-    def __init__(self, entityname) -> None:
-        """Initialize the sensor."""
-        self._state = "off"
-        self._name = entityname
-
-    @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return self._name
-
-    @property
-    def unique_id(self) -> str:
-        """Return the unique ID of the sensor."""
-        return self.name
-
-    @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
-        return self._state
-
-    @property
-    def icon(self):
-        # Return the specified icon or a default one
-        return "mdi:pill-multiple"
-
-    def update(self) -> None:
-        """Fetch new state data for the sensor.
-
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        entity_id = f"switch.{self._name}"
-
-        # Get the state of the entity
-        state = self.hass.states.get(entity_id)
-
-        if state is not None:
-            # Get the state value (e.g., "on" or "off")
-            switch_state = state.state
-            _LOGGER.info(f"The state of {entity_id} is: {switch_state}")
-            self._state = switch_state
-        else:
-            _LOGGER.info(f"The state of {entity_id} cannnot be determined")
-            self._state = "off"
 
 
 class MotionNotifcationSensor(BinarySensorEntity, RestoreEntity):
