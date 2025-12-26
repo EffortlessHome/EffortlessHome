@@ -15,7 +15,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 
 from oasira import OasiraAPIClient, OasiraAPIError
 from .const import DOMAIN, NAME
-from .effortlesshomenotificationdevice import effortlesshomenotificationdevice
+from .notificationdevice import effortlesshomenotificationdevice
 
 _LOGGER = logging.getLogger(__name__)
 

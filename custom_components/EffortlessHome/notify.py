@@ -1,5 +1,5 @@
 import logging
-from .person import effortlesshomenotificationdevice
+from .notificationdevice import effortlesshomenotificationdevice
 _LOGGER = logging.getLogger(__name__)
 
 

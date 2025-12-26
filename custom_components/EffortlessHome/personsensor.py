@@ -10,7 +10,7 @@ from homeassistant.helpers.device_registry import async_get as async_get_dev_reg
 from homeassistant.helpers.entity import Entity
 
 from .const import DOMAIN, NAME
-from .effortlesshomenotificationdevice import effortlesshomenotificationdevice
+from .notificationdevice import effortlesshomenotificationdevice
 
 _LOGGER = logging.getLogger(__name__)
 
