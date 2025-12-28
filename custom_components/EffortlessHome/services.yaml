@@ -69,7 +69,6 @@ create_alert_service:
       description: The status of the alert
       example: 'Active'
 
-
 confirmpendingalarmservice:
   description: Confirm pending EffortlessHome alarm
 
