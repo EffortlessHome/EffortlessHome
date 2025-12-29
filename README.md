@@ -27,19 +27,69 @@ Keep track of what matters most, wherever they are:
 - **Smart Notifications**: Context-aware alerts based on location and movement.
 - **Firebase Integration**: Fast and reliable push notifications for real-time updates.
 
-### 📊 Beautiful Dashboard
-Seamlessly integrated UI components:
-- **Ready-to-Use Dashboard**: Pre-configured for a high-end dashboard experience.
+### 📊 Beautiful Dashboard Theme
+
 
 ### 📝 Blueprints For Automations
+EffortlessHome provides **38+ pre-configured blueprints** to automate your home without writing a single line of YAML.
 
-### Dumb Appliances to Smart Conversion
+#### 🛡️ Security
+- **Security Alarm Trigger**: Define which Door, Window, or Motion sensors trigger your security system.
+- **Monitoring Alarm Trigger**: Separate logic for internal monitoring and safety alerts.
+- **Security Alarm Notifications**: Get detailed alerts when the main security system is triggered.
+- **Monitoring Alarm Notifications**: Receive notifications specifically for monitoring-level alerts.
+- **Disarm on Door Unlock**: Automatically disarm the security alarm when an authorized door unlock is detected.
+- **Add Event to Active Alarm**: Logs sensor events (like motion or door opens) to the active alarm timeline for better post-event auditing.
 
-###  Sleep & Aawake Mode
+#### 🚑 Safety Alerts
+- **Smoke Alarm**: Actions to take when a smoke detector is activated.
+- **Carbon Monoxide Alarm**: Specific safety alerts and actions for CO detection.
+- **Water/Leak Alarm**: Immediate notifications and actions when water leaks are detected.
+- **Temperature Alarm**: Get notified when areas reach extreme high or low temperatures.
+- **Humidity Alarm**: Monitor for humidity levels that could lead to mold or discomfort.
+
+#### 🌅 Daily Routines & Presence
+- **Goodmorning**: Transitions home to "Awake" mode, opens covers, and disarms security.
+- **Goodnight**: Transitions home to "Sleep" mode, locks doors, and arms security.
+- **Arrive Home**: Set actions for the first person arriving, such as auto-disarming and unlocking.
+- **Leave Home**: Automatically arm security and turn off lights when the last person leaves.
+- **Sunset/Sunrise**: Light and blind control synchronized with the solar cycle.
+- **Wake Alarm Sunrise Lights**: Gradually fade in lights before your scheduled wake time.
+- **Door Left Unlocked/Open**: Notify and lock up if no one is home but a door is left open or unlocked.
+
+#### 🧠 Intelligence & Convenience
+- **Camera Flash Snapshots**: Capture and notify with snapshots when motion is detected.
+- **Camera Video Recording**: Capture video clips automatically during motion events.
+- **Illuminance-Aware Motion Lights**: Motion-activated lighting that only triggers if the room is dark.
+- **Doors/Windows & Climate Sync**: Automatically turn off climate control if windows or doors are left open.
+- **Weather-Based Climate**: Adjust climate settings automatically based on outdoor conditions.
+- **Motion Notification Snooze**: Quickly snooze motion alerts for specific areas from your phone.
+- **Calendar Event Reminders**: Real-time announcements and notifications for upcoming calendar events.
+- **Set In Bed Status**: Automatically update "In Bed" status based on weight or movement sensors.
+- **Climate Control Notification Actions**: Handle "Turn Off" actions directly from climate notifications.
+
+#### 🛠️ Device & System Maintenance
+- **Auto-Update**: Advanced management for Home Assistant Core, OS, and Add-on updates.
+- **Low Battery Monitoring**: Centralized battery checks and notifications for all your devices.
+- **Offline Device Reports**: Periodic reports of Zigbee or Z-Wave devices that have gone offline.
+- **Database Cleanup**: Automated maintenance to optimize the Home Assistant database.
+- **Motion File Cleanup**: Automatically delete old snapshots and videos to save space.
+- **System Startup Recovery**: Ensure your home returns to a known state after a system restart.
+
+#### 🔌 Smart Appliance Conversions
+- **Smart Appliance Start**: Detect and notify when a laundry cycle or generic appliance starts.
+- **Smart Appliance End**: Get notified exactly when a generic appliance finishes its task.
+- **Oven Cycle Start**: Specialized detection and alerts for oven preheating/starting.
+- **Oven Cycle End**: Notifications for when your oven has finished its cycle.
+
+### 🔌 Dumb Appliances to Smart Conversion
+Convert any appliance with a smart plug into a fully integrated smart device. Get notified when your laundry is done or your oven reaches temperature using our **Smart Appliance** blueprints.
+
+### 🛌 Automated Sleep & Awake Modes
 
 ### Home & Away Modes
 
-###  Convenience Sensors & Entities
+### Convenience Sensors & Entities
 - Virtual Illuminance Sensor Based on Sun
 
 ### Convenience Config Tools
@@ -47,7 +97,8 @@ Seamlessly integrated UI components:
 - Drag & Drop Label Management
 
 ### And Much More To Come!!!!- 
-- Built-in AI
+- HA-native integration
+- Built-in AI for Home Assistant
 - EffortlessHome Hardware/Hub
 - More blueprints for automations
 - Google, Nest, Eufy, and more integrations (simplified)
@@ -92,5 +143,5 @@ Before installing the integration, you need an EffortlessHome account.
 ## 🤝 Community & Support
 - **Report Issues**: [GitHub Issues](https://github.com/effortlesshome/effortlesshome/issues)
 - **Documentation**: [Official Docs](https://github.com/effortlesshome/)
-- **Website**: [effortlesshome.ai](https://effortlesshome.co)
+- **Website**: [effortlesshome.co](https://effortlesshome.co)
 
