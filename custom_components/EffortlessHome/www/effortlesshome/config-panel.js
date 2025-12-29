@@ -306,10 +306,11 @@ class ConfigPanel extends HTMLElement {
         </div>
 
         <div class="nav-grid">
+          ${this._tile("/effortlesshome-area-panel", "mdi:label-multiple", "Set Device Areas")}
           ${this._tile("/effortlesshome-label-panel", "mdi:label", "Set Labels")}
         </div>
 
-        <div id="matter-section" class="matter-section" style="display: none;">
+        <div id="matter-section" class="matter-section">
           <h2><ha-icon icon="mdi:hub"></ha-icon> Matter Bridges</h2>
           <div id="bridge-list" class="bridge-grid">
              <p>Loading Matter bridges...</p>
@@ -370,7 +371,7 @@ class ConfigPanel extends HTMLElement {
   _tile(href, icon, label) {
     return `
       <a href="${href}" class="tile">
-        <ha-icon icon="${icon} HaIcon"></ha-icon>
+        <ha-icon icon="${icon}"></ha-icon>
         ${label}
       </a>
     `;
@@ -379,7 +380,6 @@ class ConfigPanel extends HTMLElement {
   async fetchMatterBridges() {
     const hostname = window.location.hostname;
     const url = `http://${hostname}:8482/api/matter/bridges`;
-    const section = this.querySelector("#matter-section");
     const list = this.querySelector("#bridge-list");
 
     try {
@@ -388,14 +388,13 @@ class ConfigPanel extends HTMLElement {
       const bridges = await response.json();
 
       if (bridges && bridges.length > 0) {
-        if (section) section.style.display = "flex";
         if (list) list.innerHTML = bridges.map(b => this._renderBridgeCard(b)).join("");
       } else {
-        if (section) section.style.display = "none";
+        if (list) list.innerHTML = "<p>No Matter bridges found.</p>";
       }
     } catch (err) {
       console.error("Failed to fetch Matter bridges:", err);
-      if (section) section.style.display = "none";
+      if (list) list.innerHTML = "<p style='color: var(--error-color, #f44336);'>Matter Hub unreachable or API failed.</p>";
     }
   }
 

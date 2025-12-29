@@ -448,48 +448,38 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     return True
 
-async def deploy_latest_config(hass: HomeAssistant):
-    # deploy latest: theme, cards, blueprints, etc.
-    print("in deploy latest config")
-
+def _deploy_latest_config_sync(hass: HomeAssistant):
+    """Synchronous helper for deploying config."""
     integration_dir = os.path.dirname(os.path.abspath(__file__))
 
     source_themes_dir = os.path.join(integration_dir, "themes")
     source_blueprints_dir = os.path.join(integration_dir, "blueprints")
-    source_packages_dir = os.path.join(integration_dir, "packages")
-    source_dir = os.path.join(integration_dir, "www/effortlesshome")  #+ DOMAIN) #TODO: Jermie fix this
-    source_dashboard_dir = os.path.join(integration_dir, "dashboards")
+    source_dir = os.path.join(integration_dir, "www/effortlesshome")
 
-    target_themes_dir = "/config/themes"
-    target_dir = "/config/www/effortlesshome" #+ DOMAIN #TODO: Jermie fix this
-    target_blueprints_dir = "/config/blueprints"
-    target_packages_dir = "/config/packages"
-    target_dashboard_dir = "/config/dashboards"
+    target_themes_dir = hass.config.path("themes")
+    target_dir = hass.config.path("www/effortlesshome")
+    target_blueprints_dir = hass.config.path("blueprints")
 
     # Ensure destination directories exist
-    #os.makedirs(target_themes_dir, exist_ok=True)
+    os.makedirs(target_themes_dir, exist_ok=True)
     os.makedirs(target_dir, exist_ok=True)
     os.makedirs(target_blueprints_dir, exist_ok=True)
-    #os.makedirs(target_packages_dir, exist_ok=True)
-    #os.makedirs(target_dashboard_dir, exist_ok=True)
 
     # Copy entire themes directory including subfolders and files
-    #if os.path.exists(source_themes_dir):
-    #    shutil.copytree(source_themes_dir, target_themes_dir, dirs_exist_ok=True)
-
-    #if os.path.exists(source_packages_dir):
-    #    shutil.copytree(source_packages_dir, target_packages_dir, dirs_exist_ok=True)
+    if os.path.exists(source_themes_dir):
+        shutil.copytree(source_themes_dir, target_themes_dir, dirs_exist_ok=True)
 
     if os.path.exists(source_blueprints_dir):
-        shutil.copytree(
-            source_blueprints_dir, target_blueprints_dir, dirs_exist_ok=True
-        )
+        shutil.copytree(source_blueprints_dir, target_blueprints_dir, dirs_exist_ok=True)
 
-    #if os.path.exists(source_dir):
-    #    shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+    if os.path.exists(source_dir):
+        shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
 
-    #if os.path.exists(source_dashboard_dir):
-    #    shutil.copytree(source_dashboard_dir, target_dashboard_dir, dirs_exist_ok=True)
+async def deploy_latest_config(hass: HomeAssistant):
+    """Deploy latest: theme, cards, blueprints, etc."""
+    _LOGGER.info("[EffortlessHome] Deploying latest configuration files...")
+    await hass.async_add_executor_job(_deploy_latest_config_sync, hass)
+    _LOGGER.info("[EffortlessHome] Configuration deployment complete.")
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
@@ -521,21 +511,38 @@ async def async_init(hass: HomeAssistant, entry: ConfigEntry, auto_area: AutoAre
 
     return True
 
-@callback
-def register_services(hass) -> None:
-    """Register security services."""
+async def add_label_to_entity(call: ServiceCall) -> None:
+    """Add a label to an entity."""
+    entity_id = call.data.get("entity_id")
+    label = call.data.get("label")
 
-    @callback
-    async def createcleanmotionfilesservice(call: ServiceCall) -> None:
-        await cleanmotionfiles(call)
+    if not entity_id or not label:
+        _LOGGER.error(
+            "entity_id and label are required for add_label_to_entity service"
+        )
+        return
+
+    hass = HASSComponent.get_hass()
+    ent_reg = er.async_get(hass)
+    entity_entry = ent_reg.async_get(entity_id)
+
+    if not entity_entry:
+        _LOGGER.error(f"Entity not found: {entity_id}")
+        return
+
+    new_labels = set(entity_entry.labels)
+    new_labels.add(label)
+
+    ent_reg.async_update_entity(entity_id, labels=new_labels)
+    _LOGGER.info(f"Added label '{label}' to entity '{entity_id}'")
+
+@callback
+def register_services(hass: HomeAssistant) -> None:
+    """Register effortlesshome services."""
 
     hass.services.async_register(
         DOMAIN, "createcleanmotionfilesservice", cleanmotionfiles
     )
-
-    @callback
-    async def notify_person_service(call: ServiceCall) -> None:
-        await handle_notify_person_service(call)
 
     hass.services.async_register(
         DOMAIN,
@@ -543,31 +550,11 @@ def register_services(hass) -> None:
         handle_notify_person_service,
     )
 
-    @callback
-    async def remove_person_devices_service(call: ServiceCall) -> None:
-        await handle_remove_person_devices_service(call)
-
     hass.services.async_register(
         DOMAIN,
         "remove_person_devices_service",
         handle_remove_person_devices_service,
     )
-
-    @callback
-    async def createeventservice(call: ServiceCall) -> None:
-        await createevent(call)
-
-    @callback
-    async def cancelalarmservice(call: ServiceCall) -> None:
-        await cancelalarm(call)
-
-    @callback
-    async def getalarmstatusservice(call: ServiceCall) -> None:
-        await getalarmstatus(call)
-
-    @callback
-    async def confirmpendingalarmservice(call: ServiceCall) -> None:
-        await confirmpendingalarm(call)
 
     # Register our service with Home Assistant.
     hass.services.async_register(DOMAIN, "createeventservice", createevent)
@@ -579,53 +566,15 @@ def register_services(hass) -> None:
 
     hass.services.async_register(DOMAIN, "update_entity", update_entity)
 
-    @callback
-    async def create_alert_service(call: ServiceCall) -> None:
-        await createalert(call)
-
     hass.services.async_register(DOMAIN, "create_alert_service", createalert)
 
-
-    @callback
-    async def deploylatestconfig(call: ServiceCall) -> None:
-        await handle_deploy_latest_config(call)
-
     hass.services.async_register(DOMAIN, "deploylatestconfig", handle_deploy_latest_config)
-
-    @callback
-    async def set_in_bed_state(call: ServiceCall) -> None:
-        await handle_set_in_bed_state(call)
 
     hass.services.async_register(
         DOMAIN,
         "set_in_bed_state",
         handle_set_in_bed_state,
     )
-
-    @callback
-    async def add_label_to_entity(call: ServiceCall) -> None:
-        """Add a label to an entity."""
-        entity_id = call.data.get("entity_id")
-        label = call.data.get("label")
-
-        if not entity_id or not label:
-            _LOGGER.error(
-                "entity_id and label are required for add_label_to_entity service"
-            )
-            return
-
-        ent_reg = er.async_get(hass)
-        entity_entry = ent_reg.async_get(entity_id)
-
-        if not entity_entry:
-            _LOGGER.error(f"Entity not found: {entity_id}")
-            return
-
-        new_labels = set(entity_entry.labels)
-        new_labels.add(label)
-
-        ent_reg.async_update_entity(entity_id, labels=new_labels)
-        _LOGGER.info(f"Added label '{label}' to entity '{entity_id}'")
 
     hass.services.async_register(
         DOMAIN,

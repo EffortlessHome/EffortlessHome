@@ -102,6 +102,30 @@ class AreaPanel extends LitElement {
       transition: transform 0.2s, background-color 0.3s;
     }
 
+    .instructions {
+      background: var(--card-background-color);
+      border: 1px solid var(--divider-color);
+      border-left: 4px solid var(--primary-color);
+      border-radius: 8px;
+      padding: 12px 16px;
+      margin: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--secondary-text-color);
+      font-size: 0.95rem;
+      box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0, 0, 0, 0.1));
+    }
+    
+    .instructions ha-icon {
+      color: var(--primary-color);
+      flex-shrink: 0;
+    }
+
+    .instructions strong {
+      color: var(--primary-text-color);
+    }
+
     .entity-tile:hover {
       background-color: var(--accent-color);
       color: var(--text-primary-color, #fff);
@@ -233,6 +257,13 @@ class AreaPanel extends LitElement {
             `
     )}
         </select>
+      </div>
+
+      <div class="instructions">
+        <ha-icon icon="mdi:information-outline"></ha-icon>
+        <div>
+          <strong>Instructions:</strong> Drag and drop entities between the boxes to assign them to different areas. The changes are saved automatically.
+        </div>
       </div>
 
       <div class="container">
