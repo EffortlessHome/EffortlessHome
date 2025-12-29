@@ -198,6 +198,78 @@ class ConfigPanel extends HTMLElement {
           text-decoration: none;
           margin: 0 12px;
         }
+
+        /* Matter Section Styles */
+        .matter-section {
+          background: var(--card-background-color);
+          padding: 24px;
+          border-radius: 16px;
+          box-shadow: var(--ha-card-box-shadow, 0 2px 8px rgba(0,0,0,0.1));
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+        }
+
+        .matter-section h2 {
+          margin: 0 0 8px 0;
+          font-size: 1.25rem;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+
+        .matter-section h2 ha-icon {
+          color: var(--primary-color);
+        }
+
+        .bridge-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+          gap: 20px;
+        }
+
+        .bridge-card {
+          background: var(--secondary-background-color);
+          padding: 20px;
+          border-radius: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          border: 1px solid var(--divider-color);
+        }
+
+        .bridge-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .bridge-header h3 { margin: 0; font-size: 1.1rem; }
+
+        .status-badge {
+          padding: 4px 8px;
+          border-radius: 12px;
+          font-size: 0.75rem;
+          font-weight: bold;
+          text-transform: uppercase;
+        }
+
+        .status-running { background: var(--success-color, #4caf50); color: white; }
+        .status-stopped { background: var(--error-color, #f44336); color: white; }
+
+        .pairing-info {
+          background: var(--card-background-color);
+          padding: 12px;
+          border-radius: 8px;
+          font-family: monospace;
+          font-size: 0.9rem;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .pairing-info span { color: var(--secondary-text-color); font-size: 0.75rem; }
+        .pairing-code { font-weight: bold; letter-spacing: 1px; color: var(--primary-color); }
       </style>
 
       <div class="dashboard-container">
@@ -234,8 +306,14 @@ class ConfigPanel extends HTMLElement {
         </div>
 
         <div class="nav-grid">
-          ${this._tile("/effortlesshome-area-panel", "mdi:label-multiple", "Set Device Areas")}
           ${this._tile("/effortlesshome-label-panel", "mdi:label", "Set Labels")}
+        </div>
+
+        <div id="matter-section" class="matter-section" style="display: none;">
+          <h2><ha-icon icon="mdi:hub"></ha-icon> Matter Bridges</h2>
+          <div id="bridge-list" class="bridge-grid">
+             <p>Loading Matter bridges...</p>
+          </div>
         </div>
 
         <div class="footer-links">
@@ -249,6 +327,7 @@ class ConfigPanel extends HTMLElement {
     this.querySelector("#restart-btn")?.addEventListener("click", () => this.handleRestart());
 
     this.populateCurrentUser();
+    this.fetchMatterBridges();
   }
 
   async handleLogout() {
@@ -291,9 +370,63 @@ class ConfigPanel extends HTMLElement {
   _tile(href, icon, label) {
     return `
       <a href="${href}" class="tile">
-        <ha-icon icon="${icon}"></ha-icon>
+        <ha-icon icon="${icon} HaIcon"></ha-icon>
         ${label}
       </a>
+    `;
+  }
+
+  async fetchMatterBridges() {
+    const hostname = window.location.hostname;
+    const url = `http://${hostname}:8482/api/matter/bridges`;
+    const section = this.querySelector("#matter-section");
+    const list = this.querySelector("#bridge-list");
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error("Matter Hub unreachable");
+      const bridges = await response.json();
+
+      if (bridges && bridges.length > 0) {
+        if (section) section.style.display = "flex";
+        if (list) list.innerHTML = bridges.map(b => this._renderBridgeCard(b)).join("");
+      } else {
+        if (section) section.style.display = "none";
+      }
+    } catch (err) {
+      console.error("Failed to fetch Matter bridges:", err);
+      if (section) section.style.display = "none";
+    }
+  }
+
+  _renderBridgeCard(bridge) {
+    const comm = bridge.commissioning || {};
+    const info = bridge.basicInformation || {};
+
+    return `
+      <div class="bridge-card">
+        <div class="bridge-header">
+          <h3>${bridge.name || "Matter Bridge"}</h3>
+          <span class="status-badge status-${bridge.status === "running" ? "running" : "stopped"}">
+            ${bridge.status}
+          </span>
+        </div>
+        
+        <div class="pairing-info">
+          <span>Manual Pairing Code</span>
+          <div class="pairing-code">${comm.manualPairingCode || "N/A"}</div>
+          
+          <div style="margin-top: 8px;">
+            <span>Passcode: <strong>${comm.passcode || "N/A"}</strong></span>
+            <span style="margin-left: 12px;">Discriminator: <strong>${comm.discriminator || "N/A"}</strong></span>
+          </div>
+        </div>
+
+        <div style="font-size: 0.85rem; color: var(--secondary-text-color);">
+           Devices: <strong>${bridge.deviceCount || 0}</strong><br>
+           Vendor: ${info.vendorName || "Unknown"} | Version: ${info.softwareVersion || "N/A"}
+        </div>
+      </div>
     `;
   }
 }
