@@ -133,6 +133,8 @@ class AreaPanel extends LitElement {
   }
 
   async _buildAreaTiles() {
+    if (!this.hass || !this.hass.areas || !this.hass.states || !this.hass.entities) return;
+
     const excludedDomains = [
       "person",
       "backup",
@@ -201,7 +203,7 @@ class AreaPanel extends LitElement {
           const entityId = evt.item.dataset.entity;
           const newAreaId = area.area_id === "unknown" ? null : area.area_id;
 
-          this.hass.callService("homeassistant", "update_entity", {
+          this.hass.callService("effortlesshome", "update_entity", {
             entity_id: entityId,
             area_id: newAreaId,
           });
@@ -224,39 +226,39 @@ class AreaPanel extends LitElement {
         <div class="back-arrow" @click=${() => history.back()}>&larr;</div>
         <select class="domain-select" @change=${this._handleDomainChange}>
           ${this.domains.map(
-            (domain) => html`
+      (domain) => html`
               <option ?selected=${domain === this.selectedDomain}>
                 ${domain}
               </option>
             `
-          )}
+    )}
         </select>
       </div>
 
       <div class="container">
         ${this.areas.map(
-          (area) => html`
+      (area) => html`
             <div class="area-box">
               <h3>${area.name}</h3>
               <div class="tile-grid" id="grid-${area.area_id}">
                 ${this.areaEntityMap[area.area_id]
-                  ?.filter(
-                    (eid) => eid.split(".")[0] === this.selectedDomain
-                  )
-                  .map(
-                    (eid) => html`
+          ?.filter(
+            (eid) => eid.split(".")[0] === this.selectedDomain
+          )
+          .map(
+            (eid) => html`
                       <div class="entity-tile" data-entity="${eid}">
                         ${this._getFriendlyName(eid)}
                       </div>
                     `
-                  )}
+          )}
               </div>
             </div>
           `
-        )}
+    )}
       </div>
     `;
   }
 }
 
-customElements.define("area-panel", AreaPanel);
+customElements.define("effortlesshome-area-panel", AreaPanel);

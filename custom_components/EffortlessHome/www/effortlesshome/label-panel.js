@@ -125,6 +125,8 @@ class LabelPanel extends LitElement {
   }
 
   async _buildLabelTiles() {
+    if (!this.hass || !this.hass.states || !this.hass.entities) return;
+
     const excludedDomains = [
       "person",
       "backup",
@@ -204,7 +206,7 @@ class LabelPanel extends LitElement {
           const entityId = evt.item.dataset.entity;
           const newLabelId = label.label_id;
 
-          this.hass.callService(DOMAIN, "add_label_to_entity", {
+          this.hass.callService("effortlesshome", "add_label_to_entity", {
             entity_id: entityId,
             label: newLabelId,
           });
@@ -227,34 +229,34 @@ class LabelPanel extends LitElement {
         <span class="back-arrow" @click=${() => history.back()}>←</span>
         <select @change=${this._onDomainChange}>
           ${this.allDomains.map(
-            (domain) =>
-              html`<option ?selected=${domain === this.selectedDomain}>${domain}</option>`
-          )}
+      (domain) =>
+        html`<option ?selected=${domain === this.selectedDomain}>${domain}</option>`
+    )}
         </select>
       </div>
 
       <div class="container">
         ${this.labels.map(
-          (label) => html`
+      (label) => html`
             <div class="label-box">
               <h3>${label.name}</h3>
               <div class="tile-grid" id="grid-${label.label_id}">
                 ${this.labelEntityMap[label.label_id]
-                  ?.filter((eid) => eid.startsWith(this.selectedDomain + "."))
-                  .map(
-                    (eid) => html`
+          ?.filter((eid) => eid.startsWith(this.selectedDomain + "."))
+          .map(
+            (eid) => html`
                       <div class="entity-tile" data-entity="${eid}">
                         ${this._getFriendlyName(eid)}
                       </div>
                     `
-                  )}
+          )}
               </div>
             </div>
           `
-        )}
+    )}
       </div>
     `;
   }
 }
 
-customElements.define("label-panel", LabelPanel);
+customElements.define("effortlesshome-label-panel", LabelPanel);
