@@ -21,13 +21,10 @@ EffortlessHome understands the context of your rooms:
 - **Sleep Mode**: Intelligent area-specific sleep states for customized nighttime behavior.
 - **Privacy First**: Built-in "Presence Lock" to maintain privacy when needed.
 
-### 👤 Global Person Tracking & NNotifiations
-Keep track of what matters most, wherever they are:
-- **Universal Tracking**: Unified person tracking across multiple devices and platforms.
-- **Smart Notifications**: Context-aware alerts based on location and movement.
-- **Firebase Integration**: Fast and reliable push notifications for real-time updates.
 
-### 📊 Beautiful Dashboard Theme
+### 📊 Beautiful PWA Dashboard
+
+### 📊 Beautiful Home Assistant Theme
 
 
 ### 📝 Blueprints For Automations
@@ -82,9 +79,6 @@ EffortlessHome provides **38+ pre-configured blueprints** to automate your home 
 - **Oven Cycle Start**: Specialized detection and alerts for oven preheating/starting.
 - **Oven Cycle End**: Notifications for when your oven has finished its cycle.
 
-### 🔌 Dumb Appliances to Smart Conversion
-Convert any appliance with a smart plug into a fully integrated smart device. Get notified when your laundry is done or your oven reaches temperature using our **Smart Appliance** blueprints.
-
 ### 🛌 Automated Sleep & Awake Modes
 
 ### Home & Away Modes
@@ -102,12 +96,9 @@ Convert any appliance with a smart plug into a fully integrated smart device. Ge
 - EffortlessHome Hardware/Hub
 - More blueprints for automations
 - Google, Nest, Eufy, and more integrations (simplified)
-- Mobile applications
-- Influx and more data collection
-
+- Influx and Grafana integration (simplified)
 
 ---
-
 ## 🚀 Getting Started
 
 ### 1. Account Setup
