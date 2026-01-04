@@ -22,7 +22,7 @@ blueprint:
       description: The person to notify
       selector:
         entity:
-          domain: sensor
+          domain: person
     data_clickaction_url:
       name: URL to Navigate (Optional)
       description:

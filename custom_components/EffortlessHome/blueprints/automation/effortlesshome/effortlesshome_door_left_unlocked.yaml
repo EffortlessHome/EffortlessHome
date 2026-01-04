@@ -27,7 +27,7 @@ blueprint:
       description: The person to notify
       selector:
         entity:
-          domain: sensor
+          domain: person
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)

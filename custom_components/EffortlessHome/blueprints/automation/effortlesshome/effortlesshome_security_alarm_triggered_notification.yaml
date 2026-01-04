@@ -9,7 +9,7 @@ blueprint:
       description: The person to notify
       selector:
         entity:
-          domain: sensor
+          domain: person
     notification_message:
       name: Notification message
       description: The notification message to send when the Security Alarm has been triggered.

@@ -296,12 +296,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     # Unregister if already registered
-    webhook.async_unregister(hass, "effortlesshome_location_update")
-    webhook.async_unregister(hass, "effortlesshome_push_token")
-    webhook.async_unregister(hass, "effortlesshome_broadcast")
-    webhook.async_unregister(hass, "effortlesshome_track_device_update")
-    webhook.async_unregister(hass, "effortlesshome_health_data")
 
+    webhook.async_unregister(hass, "effortlesshome_push_token")
     security_webhook = SecurityAlarmWebhook(hass)
     await SecurityAlarmWebhook.async_setup_webhook(security_webhook)
 
@@ -318,41 +314,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         handle_effortlesshome_push_token_webhook,
     )
 
-    webhook_id = "effortlesshome_location_update"
-
-    webhook.async_register(
-        hass,
-        DOMAIN,
-        "EffortlessHome Location Update",
-        webhook_id,
-        handle_effortlesshome_location_update_webhook,
-    )
-
     _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
 
-    webhook_id = "effortlesshome_track_device_update"
-
-    webhook.async_register(
-        hass,
-        DOMAIN,
-        "EffortlessHome Tracking Devices",
-        webhook_id,
-        handle_set_person_location_devices,
-    )
-
-    _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
-
-    webhook_id = "effortlesshome_health_data"
-
-    webhook.async_register(
-        hass,
-        DOMAIN,
-        "EffortlessHome Health Data",
-        webhook_id,
-        handle_effortlesshome_health_data_webhook,
-    )
-
-    _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
 
     register_services(hass)
 
@@ -379,14 +342,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await loaddevicegroups(None)
 
         #TODO: Update the link below with the actual add-on slug
-        notify_create(
-            hass,
-            title="EffortlessHome Add-on Required",
-            message=(
-                "The EffortlessHome integration needs the EffortlessHome Add-on. "
-                "Click [here](https://my.home-assistant.io/redirect/supervisor_addon/?addon=<your_slug>) to install it."
-            ),
-        )
+        #notify_create(
+        #    hass,
+        #    title="EffortlessHome Add-on Required",
+        #    message=(
+        #        "The EffortlessHome integration needs the EffortlessHome Add-on. "
+        #        "Click [here](https://my.home-assistant.io/redirect/supervisor_addon/?addon=<your_slug>) to install it."
+        #    ),
+        #)
 
     # Listen for the 'homeassistant_started' event
     hass.bus.async_listen_once(
@@ -497,11 +460,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
         ],        
     )
 
-    webhook.async_unregister(hass, "effortlesshome_location_update")
     webhook.async_unregister(hass, "effortlesshome_push_token")
-    webhook.async_unregister(hass, "effortlesshome_broadcast")
-    webhook.async_unregister(hass, "effortlesshome_track_device_update")
-    webhook.async_unregister(hass, "effortlesshome_health_data")
 
     return True
 
@@ -550,12 +509,6 @@ def register_services(hass: HomeAssistant) -> None:
         handle_notify_person_service,
     )
 
-    hass.services.async_register(
-        DOMAIN,
-        "remove_person_devices_service",
-        handle_remove_person_devices_service,
-    )
-
     # Register our service with Home Assistant.
     hass.services.async_register(DOMAIN, "createeventservice", createevent)
     hass.services.async_register(DOMAIN, "cancelalarmservice", cancelalarm)
@@ -569,12 +522,6 @@ def register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, "create_alert_service", createalert)
 
     hass.services.async_register(DOMAIN, "deploylatestconfig", handle_deploy_latest_config)
-
-    hass.services.async_register(
-        DOMAIN,
-        "set_in_bed_state",
-        handle_set_in_bed_state,
-    )
 
     hass.services.async_register(
         DOMAIN,
@@ -726,61 +673,78 @@ async def cleanmotionfiles(calldata):
         _LOGGER.error(f"Error deleting snapshots: {process.stderr.decode()}")
 
 
-async def handle_remove_person_devices_service(calldata):
-    """Handle remove person devices service."""
+async def handle_notify_person_service(calldata):
+    """Send a notification message only to a person’s Mobile App device trackers. Now with error handling and debug logging."""
+    _LOGGER.info("[handle_notify_person_service] Called with calldata: %s", calldata.data)
 
-    _LOGGER.info("In handle_remove_person_devices_service")
+    try:
+        hass = HASSComponent.get_hass()
+        person_name_list = calldata.data.get("target")
 
-    hass = HASSComponent.get_hass()
-    entity_id = calldata.data.get("entity_id")
-
-    if not entity_id:
-        _LOGGER.info("No person provided")
-        return
-
-    persons = hass.data.get(DOMAIN, {}).get("persons", [])
-
-    for i, person in enumerate(persons):
-        if person.entity_id == entity_id:
-            _LOGGER.info("Removing person devices: %s", entity_id)
-            await person.async_remove_notification_devices(hass)
+        if not person_name_list:
+            _LOGGER.info("[handle_notify_person_service] No person provided in target list.")
             return
 
-    _LOGGER.info("Person not found: %s", entity_id)
+        message = calldata.data.get("message")
+        if not message:
+            _LOGGER.info("[handle_notify_person_service] No message provided.")
+            return
 
-async def handle_notify_person_service(calldata):
-    """Send a notification message only to a person’s Mobile App device trackers."""
-    _LOGGER.info("In async_send_message")
+        title = calldata.data.get("title")
+        data = calldata.data.get("data")
 
-    hass = HASSComponent.get_hass()
-    entity_id = calldata.data.get("target")
+        ent_reg = entity_registry.async_get(hass)
 
-    if not entity_id:
-        _LOGGER.info("No person provided")
-        return
+        for person_name in person_name_list:
+            try:
+                person_entity = f"{person_name.lower()}"
+                _LOGGER.debug(f"[handle_notify_person_service] Looking up person entity: {person_entity}")
+                person_entry = ent_reg.async_get(person_entity)
 
-    message = calldata.data.get("message")
-    if not message:
-        _LOGGER.info("No message provided")
-        return
+                if person_entry is None:
+                    _LOGGER.warning(f"[handle_notify_person_service] Person entity {person_entity} not found.")
+                    continue
 
-    title = calldata.data.get("title")
-    data = calldata.data.get("data")
+                _LOGGER.debug(f"[handle_notify_person_service] Person entry found: {person_entry}")
 
-    targetperson = None
-    persons = hass.data.get(DOMAIN, {}).get("persons", [])
-    for person in persons:
-        if person.entity_id == entity_id:
-            targetperson = person
-            break
+                # Get device trackers associated with this person
+                device_trackers = person.entities_in_person(hass, person_entity)
+                _LOGGER.debug(f"[handle_notify_person_service] Device trackers for {person_name}: {device_trackers}")
 
-    if targetperson is not None:
-        _LOGGER.info("[EffortlessHome] Push Notification Target Person: "+ targetperson.name)
-        await targetperson.async_send_notification(message, title, data)     
-        
-    else:
-        _LOGGER.info("[EffortlessHome] No matching person found for entity_id: "+ entity_id)
-        return
+                if not device_trackers:
+                    _LOGGER.warning(f"[handle_notify_person_service] No device trackers found for person {person_name}.")
+                    continue
+
+                # Filter only device_trackers from the Mobile App integration
+                mobile_app_devices = []
+                for device_tracker in device_trackers:
+                    tracker_entry = ent_reg.async_get(device_tracker)
+                    if tracker_entry and tracker_entry.platform == "mobile_app":
+                        mobile_app_devices.append(device_tracker)
+
+                _LOGGER.debug(f"[handle_notify_person_service] Mobile App device trackers for {person_name}: {mobile_app_devices}")
+
+                if not mobile_app_devices:
+                    _LOGGER.warning(f"[handle_notify_person_service] No Mobile App device trackers found for {person_name}.")
+                    continue
+
+                # Send notifications to Mobile App notify services
+                for device_tracker in mobile_app_devices:
+                    try:
+                        notify_service = device_tracker.replace("device_tracker.", "mobile_app_")
+                        _LOGGER.info(f"[handle_notify_person_service] Sending notification to {notify_service} for {person_name}")
+                        await hass.services.async_call(
+                            "notify",
+                            notify_service,
+                            {"message": message, "title": title, "data": data},
+                            blocking=False,
+                        )
+                    except Exception as notify_err:
+                        _LOGGER.error(f"[handle_notify_person_service] Error sending notification to {notify_service} for {person_name}: {notify_err}")
+            except Exception as person_err:
+                _LOGGER.error(f"[handle_notify_person_service] Error processing person {person_name}: {person_err}")
+    except Exception as err:
+        _LOGGER.exception(f"[handle_notify_person_service] Unexpected error: {err}")
 
 async def handle_deploy_latest_config(call: ServiceCall) -> None:
     """Handle the service call."""
@@ -793,54 +757,6 @@ async def handle_set_in_bed_state(call):
     state = call.data.get("state")
 
     await updateEntity(area_id, state)
-
-
-async def handle_effortlesshome_location_update_webhook(hass, webhook_id, request):
-    """Register EffortlessHome location update service."""
-
-    _LOGGER.info("[EffortlessHome] 📍 Handling location update webhook")
-    _LOGGER.info("[EffortlessHome] Request headers: %s", dict(request.headers))
-
-    try:
-        data = await request.json()
-        _LOGGER.info("[EffortlessHome] 📍 Location update payload: %s", data)
-    except Exception as e:
-        _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
-        return web.Response(status=400, text="Invalid JSON")
-
-    ####TODO: get user's email here and link this device tracker to them (local and online) #####
-
-    device_id = data.get("device_id")
-    lat = data.get("latitude")
-    lon = data.get("longitude")
-    accuracy = data.get("accuracy", 30.0)
-
-    _LOGGER.info("[EffortlessHome] 📍 Parsed data - device_id: %s, lat: %s, lon: %s, accuracy: %s", device_id, lat, lon, accuracy)
-
-    if not device_id or lat is None or lon is None:
-        _LOGGER.error("[EffortlessHome] ❌ Missing required fields - device_id: %s, lat: %s, lon: %s", device_id, lat, lon)
-        return web.Response(status=400, text="Missing required fields")
-
-    device_id_new = device_id.lower().replace('@', '_').replace('.', '_')
-    entity_id = f"device_tracker.{device_id_new}"
-
-    _LOGGER.info("[EffortlessHome] 📍 Creating/updating device tracker: %s", entity_id)
-
-    # Update or create entity
-    hass.states.async_set(
-        entity_id,
-        "home",  # You can change this dynamically later
-        {
-            "latitude": lat,
-            "longitude": lon,
-            "gps_accuracy": accuracy,
-            "source_type": SOURCE_TYPE_GPS,
-            "friendly_name": f"EffortlessHome {device_id_new.title()}",
-        },
-    )
-
-    _LOGGER.info("[EffortlessHome] ✅ Location update successful for %s", entity_id)
-    return web.json_response({"status": "success", "message": "Location updated"})
 
 #sampledata
 #{
@@ -894,150 +810,5 @@ async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
                        email, [p.name for p in persons])
         return web.Response(status=404, text="Person not found")
 
-async def handle_set_person_location_devices(hass, webhook_id, request):
-    """Handle incoming webhook."""
-
-    _LOGGER.info("[EffortlessHome] 📱 Handling set person tracking devices webhook")
-    _LOGGER.info("[EffortlessHome] Request headers: %s", dict(request.headers))
-
-    try:
-        data = await request.json()
-        _LOGGER.info("[EffortlessHome] 📱 Tracking devices payload: %s", data)
-    except Exception as e:
-        _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
-        return web.Response(status=400, text="Invalid JSON")
-
-    email = data.get("email")
-    inhometracker = data.get("inhometracker")
-    remotetracker = data.get("remotetracker")
-
-    _LOGGER.info("[EffortlessHome] 📱 Parsed data - email: %s, inhometracker: %s, remotetracker: %s", 
-                 email, inhometracker, remotetracker)
-
-    if not email:
-        _LOGGER.error("[EffortlessHome] ❌ Set Person Location Devices Webhook called without 'email' field.")
-        return web.Response(status=400, text="Missing email field")
-
-    persons = hass.data.get(DOMAIN, {}).get("persons", [])
-    _LOGGER.info("[EffortlessHome] 📱 Searching for person among %s registered persons", len(persons))
-    
-    targetperson = None
-    for person in persons:
-        if person.name == email:
-            targetperson = person
-            break
-
-    if targetperson is not None:
-        _LOGGER.info("[EffortlessHome] 📱 Found target person: %s", targetperson.name)
-        
-        if inhometracker is not None and inhometracker != "":
-            _LOGGER.info("[EffortlessHome] 📱 Setting local tracker: %s", inhometracker)
-            await targetperson.async_set_local_tracker(inhometracker)
-        else:
-            _LOGGER.info("[EffortlessHome] 📱 No inhometracker provided or empty")
-        
-        if remotetracker is not None and remotetracker != "":
-            _LOGGER.info("[EffortlessHome] 📱 Setting remote tracker: %s", remotetracker)
-            await targetperson.async_set_remote_tracker(remotetracker)
-        else:
-            _LOGGER.info("[EffortlessHome] 📱 No remotetracker provided or empty")
-        
-        _LOGGER.info("[EffortlessHome] ✅ Tracking devices updated successfully for %s", email)
-        return web.json_response({"status": "success", "message": "Tracking devices updated"})
-    else:
-        _LOGGER.warning("[EffortlessHome] ❌ Person not found for email: %s (available: %s)", 
-                       email, [p.name for p in persons])
-        return web.Response(status=404, text="Person not found")
 
 
-async def handle_effortlesshome_health_data_webhook(hass, webhook_id, request):
-    """Handle incoming health data from mobile devices."""
-
-    _LOGGER.info("[EffortlessHome] 🏥 Handling health data webhook")
-    _LOGGER.info("[EffortlessHome] Request headers: %s", dict(request.headers))
-
-    try:
-        data = await request.json()
-        _LOGGER.info("[EffortlessHome] 🏥 Health data payload: %s", {k: v for k, v in data.items() if k != 'email'})
-    except Exception as e:
-        _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
-        return web.Response(status=400, text="Invalid JSON")
-
-    email = data.get("email")
-    timestamp = data.get("timestamp")
-
-    _LOGGER.info("[EffortlessHome] 🏥 Processing health data for: %s at %s", email, timestamp)
-
-    if not email:
-        _LOGGER.error("[EffortlessHome] ❌ Missing required field: email")
-        return web.Response(status=400, text="Missing required field: email")
-
-    # Find the person entity
-    persons = hass.data.get(DOMAIN, {}).get("persons", [])
-    _LOGGER.info("[EffortlessHome] 🏥 Searching for person among %s registered persons", len(persons))
-    
-    targetperson = None
-    for person in persons:
-        if person.name == email:
-            targetperson = person
-            break
-
-    if targetperson is None:
-        _LOGGER.warning("[EffortlessHome] ❌ Person not found for email: %s (available: %s)", 
-                       email, [p.name for p in persons])
-        return web.Response(status=404, text="Person not found")
-
-    _LOGGER.info("[EffortlessHome] 🏥 Found target person: %s", targetperson.name)
-
-    # Store health data on the person entity
-    await targetperson.async_update_health_data(data)
-
-    # Create/update sensor entities for each health metric
-    health_metrics = {
-        "stepCount": ("steps", "mdi:walk", "steps"),
-        "heartRate": ("bpm", "mdi:heart-pulse", "measurement"),
-        "sleepHours": ("h", "mdi:sleep", "measurement"),
-        "activeMinutes": ("min", "mdi:run", "measurement"),
-        "distance": ("m", "mdi:map-marker-distance", "measurement"),
-        "caloriesBurned": ("kcal", "mdi:fire", "measurement"),
-        "bloodPressureSystolic": ("mmHg", "mdi:heart-pulse", "measurement"),
-        "bloodPressureDiastolic": ("mmHg", "mdi:heart-pulse", "measurement"),
-        "bloodOxygen": ("%", "mdi:water-percent", "measurement"),
-        "bodyTemperature": ("°C", "mdi:thermometer", "measurement"),
-        "weight": ("kg", "mdi:weight-kilogram", "measurement"),
-        "height": ("cm", "mdi:human-male-height", "measurement"),
-    }
-
-    email_sanitized = email.lower().replace('@', '_').replace('.', '_')
-    sensors_updated = 0
-
-    for metric_key, (unit, icon, state_class) in health_metrics.items():
-        value = data.get(metric_key)
-        
-        if value is not None:
-            entity_id = f"sensor.effortlesshome_health_{email_sanitized}_{metric_key.lower()}"
-            friendly_name = f"EffortlessHome Health {metric_key.replace('_', ' ').title()} ({email})"
-
-            _LOGGER.debug("[EffortlessHome] 🏥 Creating/updating sensor: %s = %s %s", entity_id, value, unit)
-
-            hass.states.async_set(
-                entity_id,
-                value,
-                {
-                    "unit_of_measurement": unit,
-                    "friendly_name": friendly_name,
-                    "icon": icon,
-                    "state_class": state_class,
-                    "device_class": metric_key.lower(),
-                    "last_updated": timestamp,
-                    "source": "effortlesshome_mobile_app",
-                },
-            )
-            sensors_updated += 1
-
-    _LOGGER.info("[EffortlessHome] ✅ Health data processed successfully for %s - %s sensors updated", email, sensors_updated)
-    return web.json_response({
-        "status": "success", 
-        "message": f"Health data processed - {sensors_updated} metrics updated",
-        "sensors_updated": sensors_updated
-    })

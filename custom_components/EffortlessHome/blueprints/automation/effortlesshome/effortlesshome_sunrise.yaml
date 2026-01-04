@@ -1,0 +1,51 @@
+blueprint:
+  name: Sunrise
+  description:
+    Actions to take when the sun rises (e.g. turn off certain lights) if
+    someone is home
+  domain: automation
+  author: EffortlessHome
+  input:
+    lighttoturnon:
+      name: Lights to turn off
+      description: Turn off these lights (optional)
+      default: []
+      selector:
+        entity:
+          filter:
+            - domain:
+                - light
+          multiple: true
+    plugtoturnon:
+      name: Plugs to turn off
+      description: Turn off these plugs (optional)
+      default: []
+      selector:
+        entity:
+          filter:
+            - domain:
+                - switch
+          multiple: true
+    additional_actions:
+      name: Additional Actions
+      description: Add additional actions to execute (Optional)
+      default: []
+      selector:
+        action: {}
+trigger:
+  - platform: sun
+    event: sunset
+    offset: 0
+condition:
+  - condition: state
+    entity_id: binary_sensor.someone_home_sensor
+    state: "on"
+action:
+  - service: light.turn_off
+    target:
+      entity_id: !input lighttoturnon
+  - service: switch.turn_off
+    target:
+      entity_id: !input plugtoturnon
+  - choose: []
+    default: !input additional_actions

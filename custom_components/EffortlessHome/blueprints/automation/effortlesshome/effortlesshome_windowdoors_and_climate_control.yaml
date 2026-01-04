@@ -34,7 +34,7 @@ blueprint:
       description: The person to notify
       selector:
         entity:
-          domain: sensor
+          domain: person
     window_open_delay:
       name: Delay After Window Opens
       description:

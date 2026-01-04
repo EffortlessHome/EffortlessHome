@@ -52,7 +52,7 @@ blueprint:
       description: The person to notify
       selector:
         entity:
-          domain: sensor
+          domain: person
     notification_message:
       name: Notification message
       description: "Default: Appliance Started"
