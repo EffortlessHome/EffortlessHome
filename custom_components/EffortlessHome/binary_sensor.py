@@ -655,32 +655,30 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
     def __init__(self) -> None:
         """Initialize the sensor."""
         self._state = "off"
-            import logging
-            self._logger = logging.getLogger(__name__)
-            self._logger.debug("[SomeoneHomeSensor] Initialized with state 'off'")
+        _LOGGER.debug("[SomeoneHomeSensor] Initialized with state 'off'")
 
     async def async_added_to_hass(self):
         self.async_on_remove(
             self.hass.bus.async_listen("sleeping_switch_updated", self._handle_switch_event)
         )
-            self._logger.debug("[SomeoneHomeSensor] Added to hass, registering event listener.")
-            try:
-                self.async_on_remove(
-                    self.hass.bus.async_listen("sleeping_switch_updated", self._handle_switch_event)
-                )
-            except Exception as e:
-                self._logger.error(f"[SomeoneHomeSensor] Error registering event listener: {e}")
+        _LOGGER.debug("[SomeoneHomeSensor] Added to hass, registering event listener.")
+        try:
+            self.async_on_remove(
+                self.hass.bus.async_listen("sleeping_switch_updated", self._handle_switch_event)
+            )
+        except Exception as e:
+            _LOGGER.error(f"[SomeoneHomeSensor] Error registering event listener: {e}")
 
     async def _handle_switch_event(self, event):
         self._state = "on" if event.data["is_on"] else "off"
         self.async_write_ha_state()
-            try:
-                is_on = event.data.get("is_on")
-                self._logger.debug(f"[SomeoneHomeSensor] Received switch event: is_on={is_on}")
-                self._state = "on" if is_on else "off"
-                self.async_write_ha_state()
-            except Exception as e:
-                self._logger.error(f"[SomeoneHomeSensor] Error handling switch event: {e}")
+        try:
+            is_on = event.data.get("is_on")
+            _LOGGER.debug(f"[SomeoneHomeSensor] Received switch event: is_on={is_on}")
+            self._state = "on" if is_on else "off"
+            self.async_write_ha_state()
+        except Exception as e:
+            _LOGGER.error(f"[SomeoneHomeSensor] Error handling switch event: {e}")
 
     @property
     def name(self) -> str:
@@ -700,12 +698,12 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
     def set_state(self, state: bool):
         self._attr_is_on = state
         self.async_write_ha_state()
-            try:
-                self._logger.debug(f"[SomeoneHomeSensor] set_state called with: {state}")
-                self._attr_is_on = state
-                self.async_write_ha_state()
-            except Exception as e:
-                self._logger.error(f"[SomeoneHomeSensor] Error in set_state: {e}")
+        try:
+            _LOGGER.debug(f"[SomeoneHomeSensor] set_state called with: {state}")
+            self._attr_is_on = state
+            self.async_write_ha_state()
+        except Exception as e:
+            _LOGGER.error(f"[SomeoneHomeSensor] Error in set_state: {e}")
 
     @property
     def state(self): 
@@ -716,36 +714,36 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
         """Fetch new state data for the sensor, with detailed debug logging."""
         try:
             home = 0
-            self._logger.debug("[SomeoneHomeSensor][update] Starting update. Initial home count: 0")
+            _LOGGER.debug("[SomeoneHomeSensor][update] Starting update. Initial home count: 0")
             for entity_id in self.hass.states.entity_ids("device_tracker"):
                 try:
                     state = self.hass.states.get(entity_id)
-                    self._logger.debug(f"[SomeoneHomeSensor][update] Checking device_tracker {entity_id}: state={getattr(state, 'state', None)}")
+                    _LOGGER.debug(f"[SomeoneHomeSensor][update] Checking device_tracker {entity_id}: state={getattr(state, 'state', None)}")
                     if state and state.state == "home":
                         home += 1
-                        self._logger.debug(f"[SomeoneHomeSensor][update] {entity_id} is home. Incremented home count: {home}")
+                        _LOGGER.debug(f"[SomeoneHomeSensor][update] {entity_id} is home. Incremented home count: {home}")
                 except Exception as e:
-                    self._logger.error(f"[SomeoneHomeSensor][update] Error checking device_tracker {entity_id}: {e}")
+                    _LOGGER.error(f"[SomeoneHomeSensor][update] Error checking device_tracker {entity_id}: {e}")
 
             entity_id = "group.security_motion_sensors_group"
             try:
                 motion_sensor_state = self.hass.states.get(entity_id)
                 motion_sensor_state_val = motion_sensor_state.state if motion_sensor_state is not None else "Unknown"
-                self._logger.debug(f"[SomeoneHomeSensor][update] Motion sensor group state: {motion_sensor_state_val}")
+                _LOGGER.debug(f"[SomeoneHomeSensor][update] Motion sensor group state: {motion_sensor_state_val}")
             except Exception as e:
-                self._logger.error(f"[SomeoneHomeSensor][update] Error getting motion sensor group state: {e}")
+                _LOGGER.error(f"[SomeoneHomeSensor][update] Error getting motion sensor group state: {e}")
                 motion_sensor_state_val = "Unknown"
 
             if (home > 0 or (isinstance(motion_sensor_state_val, str) and motion_sensor_state_val.lower() == "on")):
                 prev_state = self._state
                 self._state = "on"
-                self._logger.debug(f"[SomeoneHomeSensor][update] Someone is home or motion detected. State changed from {prev_state} to 'on'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
+                _LOGGER.debug(f"[SomeoneHomeSensor][update] Someone is home or motion detected. State changed from {prev_state} to 'on'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
             else:
                 prev_state = self._state
                 self._state = "off"
-                self._logger.debug(f"[SomeoneHomeSensor][update] No one home and no motion. State changed from {prev_state} to 'off'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
+                _LOGGER.debug(f"[SomeoneHomeSensor][update] No one home and no motion. State changed from {prev_state} to 'off'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
         except Exception as e:
-            self._logger.error(f"[SomeoneHomeSensor][update] Error in update: {e}")
+            _LOGGER.error(f"[SomeoneHomeSensor][update] Error in update: {e}")
 
 
 
@@ -792,33 +790,33 @@ class MotionNotifcationSensor(BinarySensorEntity, RestoreEntity):
         """
         entity_id = "switch.switch_motion_notifications"
 
-            try:
-                home = 0
-                for entity_id in self.hass.states.entity_ids("device_tracker"):
-                    try:
-                        state = self.hass.states.get(entity_id)
-                        self._logger.debug(f"[SomeoneHomeSensor] Checking device_tracker {entity_id}: state={getattr(state, 'state', None)}")
-                        if state and state.state == "home":
-                            home += 1
-                    except Exception as e:
-                        self._logger.error(f"[SomeoneHomeSensor] Error checking device_tracker {entity_id}: {e}")
-
-                entity_id = "group.security_motion_sensors_group"
+        try:
+            home = 0
+            for entity_id in self.hass.states.entity_ids("device_tracker"):
                 try:
-                    motion_sensor_state = self.hass.states.get(entity_id)
-                    motion_sensor_state_val = motion_sensor_state.state if motion_sensor_state is not None else "Unknown"
-                    self._logger.debug(f"[SomeoneHomeSensor] Motion sensor group state: {motion_sensor_state_val}")
+                    state = self.hass.states.get(entity_id)
+                    _LOGGER.debug(f"[SomeoneHomeSensor] Checking device_tracker {entity_id}: state={getattr(state, 'state', None)}")
+                    if state and state.state == "home":
+                        home += 1
                 except Exception as e:
-                    self._logger.error(f"[SomeoneHomeSensor] Error getting motion sensor group state: {e}")
-                    motion_sensor_state_val = "Unknown"
+                    _LOGGER.error(f"[SomeoneHomeSensor] Error checking device_tracker {entity_id}: {e}")
 
-                if (home > 0 or (isinstance(motion_sensor_state_val, str) and motion_sensor_state_val.lower() == "on")):
-                    self._state = "on"
-                else:
-                    self._state = "off"
-                self._logger.debug(f"[SomeoneHomeSensor] Updated state: {self._state} (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
+            entity_id = "group.security_motion_sensors_group"
+            try:
+                motion_sensor_state = self.hass.states.get(entity_id)
+                motion_sensor_state_val = motion_sensor_state.state if motion_sensor_state is not None else "Unknown"
+                _LOGGER.debug(f"[SomeoneHomeSensor] Motion sensor group state: {motion_sensor_state_val}")
             except Exception as e:
-                self._logger.error(f"[SomeoneHomeSensor] Error in update: {e}")
+                _LOGGER.error(f"[SomeoneHomeSensor] Error getting motion sensor group state: {e}")
+                motion_sensor_state_val = "Unknown"
+
+            if (home > 0 or (isinstance(motion_sensor_state_val, str) and motion_sensor_state_val.lower() == "on")):
+                self._state = "on"
+            else:
+                self._state = "off"
+            _LOGGER.debug(f"[SomeoneHomeSensor] Updated state: {self._state} (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
+        except Exception as e:
+            _LOGGER.error(f"[SomeoneHomeSensor] Error in update: {e}")
         # Get the state of the entity
         state = self.hass.states.get(entity_id)
 

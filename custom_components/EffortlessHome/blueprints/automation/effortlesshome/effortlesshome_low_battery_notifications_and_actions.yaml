@@ -42,7 +42,7 @@ blueprint:
       description: The person to notify
       selector:
         entity:
-          domain: sensor
+          domain: person
     notification_title:
       name: Notification title
       description: 'Default: "Battery Check Notification"'

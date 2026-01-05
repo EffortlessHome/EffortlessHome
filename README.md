@@ -104,7 +104,6 @@ EffortlessHome provides **38+ pre-configured blueprints** to automate your home 
 ### 1. Account Setup
 Before installing the integration, you need an EffortlessHome account.
 - **Visit**: [my.effortlesshome.co](https://my.effortlesshome.co) to sign up and configure your system.
-- **Get IDs**: Note your **Customer ID** and **System ID** from the portal.
 
 ### 2. Installation
 

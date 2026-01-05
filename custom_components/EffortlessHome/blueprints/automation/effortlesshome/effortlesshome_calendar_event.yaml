@@ -15,7 +15,7 @@ blueprint:
       description: The person to notify
       selector:
         entity:
-          domain: sensor
+          domain: person
 
     offset_time:
       name: Offset Before Event

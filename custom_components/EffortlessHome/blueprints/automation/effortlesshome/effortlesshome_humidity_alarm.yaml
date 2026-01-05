@@ -32,7 +32,7 @@ blueprint:
       description: The person to notify
       selector:
         entity:
-          domain: sensor
+          domain: person
     notification_message:
       name: Notification message
       description: "Humidity Sensor Activated Message"

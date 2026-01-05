@@ -752,12 +752,6 @@ async def handle_deploy_latest_config(call: ServiceCall) -> None:
 
     await deploy_latest_config(hass)
 
-async def handle_set_in_bed_state(call):
-    area_id = call.data.get("area_id")
-    state = call.data.get("state")
-
-    await updateEntity(area_id, state)
-
 #sampledata
 #{
 #    email: 
