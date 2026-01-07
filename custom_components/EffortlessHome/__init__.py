@@ -156,6 +156,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         try:
             parsed_data = await api_client.get_customer_and_system()
 
+            # Fetch plan features for this system
+            plan_features = None
+            try:
+                plan_features = await api_client.get_plan_features_by_system_id()
+            except Exception as pf_exc:
+                _LOGGER.warning("Failed to fetch plan features: %s", pf_exc)
+                plan_features = None
+
             hass.data[DOMAIN] = {
                 "fullname": parsed_data["fullname"],
                 "phonenumber": parsed_data["phonenumber"],
@@ -178,25 +186,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "HighTemperatureWarning": parsed_data["HighTemperatureWarning"],
                 "LowHumidityWarning": parsed_data["LowHumidityWarning"],
                 "HighHumidityWarning": parsed_data["HighHumidityWarning"],
-                "cloudflare_token": parsed_data["cloudflare_token"],
                 "address_json": parsed_data["address_json"],
                 "systemphotolurl": parsed_data["systemphotolurl"],
                 "testmode": parsed_data["testmode"],
                 "additional_contacts_json": parsed_data["additional_contacts_json"],
                 "instructions_json": parsed_data["instructions_json"],
                 "plan": parsed_data["name"],
-                "trial_expiration": parsed_data["trial_expiration"],
+                "plan_features": plan_features,
             }
         except OasiraAPIError as e:
             _LOGGER.error("Failed to fetch customer/system data: %s", e)
             raise HomeAssistantError(f"Failed to fetch customer/system data: {e}") from e
-
-    #ha_url = hass.data[DOMAIN]["ha_url"]    
-
-    #hass.states.async_set("sensor.customerid", customer_id, {"dev_mode": "off"})
-    #hass.states.async_set("sensor.systemid", system_id, {"dev_mode": "off"})
-    #hass.states.async_set("sensor.ha_url", ha_url, {"dev_mode": "off"})
-#    hass.states.async_set("sensor.user", username, {"dev_mode": "off"})
 
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
@@ -296,7 +296,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     # Unregister if already registered
-
     webhook.async_unregister(hass, "effortlesshome_push_token")
     security_webhook = SecurityAlarmWebhook(hass)
     await SecurityAlarmWebhook.async_setup_webhook(security_webhook)
@@ -315,7 +314,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
-
 
     register_services(hass)
 

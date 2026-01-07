@@ -117,22 +117,36 @@ async def async_createsecurityalarm(pendingAlarm):
 
     _LOGGER.info("Pending Alarm HASS: %s", pendingAlarm.hass)
 
-    #TODO: Jermie enable plan feature checks
-    #hasSecurityPlan = hass.states.get(DOMAIN +".activesecurityplan")
-
-    #if not hasSecurityPlan:
-    #    _LOGGER.info("No Active Security Plan")
-    #    return
+    # Check for feature id 3 in plan features
+    plan_features = hass.data[DOMAIN].get("plan_features")
+    has_feature_3 = False
+    if plan_features:
+        # plan_features may be a dict with a 'features' key or a list of dicts
+        features = plan_features.get("features") if isinstance(plan_features, dict) else None
+        if features and isinstance(features, list):
+            has_feature_3 = any(
+                (isinstance(f, dict) and f.get("feature_id") == 3) or (isinstance(f, int) and f == 3)
+                for f in features
+            )
+        elif isinstance(plan_features, list):
+            has_feature_3 = any(
+                (isinstance(f, dict) and f.get("feature_id") == 3) or (isinstance(f, int) and f == 3)
+                for f in plan_features
+            )
+    if not has_feature_3:
+        _LOGGER.info("No Active Security Plan (feature id 3 not present)")
+        return
 
     systemid = hass.data[DOMAIN].get("systemid")
 
     _LOGGER.info("System ID: %s", hass.data[DOMAIN].get("systemid"))  
     _LOGGER.info("Email Address: %s", hass.data[DOMAIN].get("username"))  
 
-    #TODO: Jermie replace hardcoded sensor
+
+    # Populate alarm_data with the actual triggering sensor
     alarm_data = {
-        "sensor_device_class": "door",
-        "sensor_device_name": "frontdoor"
+        "sensor_device_class": pendingAlarm.sensor_device_class or "unknown",
+        "sensor_device_name": pendingAlarm.sensor_device_name or "unknown"
     }
 
     _LOGGER.info("Calling create monitoring alarm API with payload: %s", alarm_data)
@@ -168,20 +182,33 @@ async def async_createmonitoringalarm(pendingAlarm):
 
     hass = pendingAlarm.hass
 
-    #TODO: Jermie enable plan feature checks
-    #hasMonitoringPlan = hass.states.get(DOMAIN +".activemonitoringplan")
-
-    #if not hasMonitoringPlan:
-    #    _LOGGER.info("No Active Monitoring Plan")
-    #    return
+    # Check for feature id 4 in plan features
+    plan_features = hass.data[DOMAIN].get("plan_features")
+    has_feature_4 = False
+    if plan_features:
+        features = plan_features.get("features") if isinstance(plan_features, dict) else None
+        if features and isinstance(features, list):
+            has_feature_4 = any(
+                (isinstance(f, dict) and f.get("feature_id") == 4) or (isinstance(f, int) and f == 4)
+                for f in features
+            )
+        elif isinstance(plan_features, list):
+            has_feature_4 = any(
+                (isinstance(f, dict) and f.get("feature_id") == 4) or (isinstance(f, int) and f == 4)
+                for f in plan_features
+            )
+    if not has_feature_4:
+        _LOGGER.info("No Active Monitoring Plan (feature id 4 not present)")
+        return
 
     systemid = hass.data[DOMAIN].get("systemid") 
     id_token = hass.data[DOMAIN].get("id_token")
 
-    #TODO: Jermie: replace hardcoded sensor
+
+    # Populate alarm_data with the actual triggering sensor
     alarm_data = {
-        "sensor_device_class": "medical",
-        "sensor_device_name": "medical alert"
+        "sensor_device_class": pendingAlarm.sensor_device_class or "unknown",
+        "sensor_device_name": pendingAlarm.sensor_device_name or "unknown"
     }
 
     _LOGGER.info("Calling create medical alarm API with payload: %s", alarm_data)
@@ -214,12 +241,24 @@ async def async_createmedicalalertalarm(pendingAlarm):
 
     hass = pendingAlarm.hass
 
-    #TODO: Jermie enable plan feature checks
-    #hasMedAlertPlan = hass.states.get(DOMAIN +".activemedicalalertplan")
-
-    #if not hasMedAlertPlan:
-    #    _LOGGER.info("No Active Medical Alert Alarm Plan")
-    #    return
+    # Check for feature id 5 in plan features
+    plan_features = hass.data[DOMAIN].get("plan_features")
+    has_feature_5 = False
+    if plan_features:
+        features = plan_features.get("features") if isinstance(plan_features, dict) else None
+        if features and isinstance(features, list):
+            has_feature_5 = any(
+                (isinstance(f, dict) and f.get("feature_id") == 5) or (isinstance(f, int) and f == 5)
+                for f in features
+            )
+        elif isinstance(plan_features, list):
+            has_feature_5 = any(
+                (isinstance(f, dict) and f.get("feature_id") == 5) or (isinstance(f, int) and f == 5)
+                for f in plan_features
+            )
+    if not has_feature_5:
+        _LOGGER.info("No Active Medical Alert Alarm Plan (feature id 5 not present)")
+        return
 
     systemid = hass.data[DOMAIN].get("systemid") 
 
