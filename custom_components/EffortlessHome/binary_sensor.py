@@ -29,7 +29,6 @@ async def async_setup_entry(
     """Set up entities."""
     HASSComponent.set_hass(hass)
 
-    async_add_entities([BinaryMedAlertSensor()])
     async_add_entities([MonitoringAlarm()])
     async_add_entities([SleepingSensor()])
     async_add_entities([SomeoneHomeSensor()])

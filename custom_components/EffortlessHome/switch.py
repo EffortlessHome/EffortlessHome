@@ -49,11 +49,10 @@ async def async_setup_entry(
             # PresenceLockSwitch(auto_area),
             SleepModeSwitch(),
             MotionNotificationsSwitch(),
-            MedicalAlertAlarmSwitch("medicalalertalarm"),
             MonitoringAlarmSwitch("monitoringalarm"),
             SmartApplianceConversionSwitch("SmartAppliance1"),
             SmartApplianceConversionSwitch("SmartAppliance2"),
-
+            SmartApplianceConversionSwitch("SmartAppliance3"),
         ]
     )
 
