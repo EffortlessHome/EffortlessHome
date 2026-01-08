@@ -44,20 +44,6 @@ blueprint:
           entity:
             - domain:
                 - light
-    dim_time:
-      name: Dim light
-      description:
-        The light will start dim this many seconds before it is turned
-        off if no motion has been detected to signal that the light will soon turn
-        off.
-      default: 30
-      selector:
-        number:
-          min: 0.0
-          max: 120.0
-          unit_of_measurement: seconds
-          step: 1.0
-          mode: slider
 
     no_motion_wait:
       name: Wait time
@@ -126,8 +112,6 @@ action:
 
   - service: light.turn_off
     target: !input light_target
-    data:
-      transition: !input dim_time
 
   - choose: []
     default: !input additional_actions
