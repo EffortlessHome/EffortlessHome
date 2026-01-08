@@ -21,7 +21,7 @@ blueprint:
       selector:
         entity:
           domain:
-            - group
+            - binary_sensor
     person_input:
       name: Person
       description: The person to notify

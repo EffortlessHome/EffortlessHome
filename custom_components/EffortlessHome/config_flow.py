@@ -100,11 +100,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     _LOGGER.exception("Unexpected error during authentication: %s", err)
                     errors["base"] = "unknown"
 
-        # Show the form
-        info_text = "New Here? Visit https://my.effortlesshome.ai to create an account."
-
         data_schema = vol.Schema({
-            vol.Optional("info", description={"suggested_value": info_text}): str,
             vol.Required(CONF_EMAIL): str,
             vol.Required(CONF_PASSWORD): str,
         })
@@ -205,14 +201,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     },
                 )
 
-        # Show manual entry form
-        info_text = (
-            "The system could not automatically find your customer and system IDs. "
-            "Please enter them manually. You can find these at https://my.effortlesshome.ai"
-        )
-
         data_schema = vol.Schema({
-            vol.Optional("info", description={"suggested_value": info_text}): str,
             vol.Required(CONF_CUSTOMER_ID): str,
             vol.Required(CONF_SYSTEM_ID): str,
         })

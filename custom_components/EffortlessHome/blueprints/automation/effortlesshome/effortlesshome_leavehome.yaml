@@ -49,7 +49,7 @@ blueprint:
       selector:
         entity:
           domain:
-            - group
+            - binary_sensor
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)

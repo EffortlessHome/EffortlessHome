@@ -68,7 +68,7 @@ blueprint:
       selector:
         entity:
           domain:
-            - group
+            - binary_sensor
           multiple: true
     additional_actions:
       name: Additional Actions

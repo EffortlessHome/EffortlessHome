@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Sign in to EffortlessHome",
-        "description": "Enter your EffortlessHome account credentials. New users can sign up at https://my.effortlesshome.ai",
+        "description": "Enter your EffortlessHome account credentials. New users can sign up at https://my.effortlesshome.co",
         "data": {
           "info": "Information",
           "email": "Email",
@@ -31,7 +31,7 @@
       "missing_fields": "Please provide all required fields",
       "invalid_auth": "Invalid email or password. Please check your credentials and try again.",
       "cannot_connect": "Unable to connect to EffortlessHome services. Please check your internet connection.",
-      "no_system_found": "No system found for this account. Please ensure your account is properly set up at https://my.effortlesshome.ai",
+      "no_system_found": "No system found for this account. Please ensure your account is properly set up at https://my.effortlesshome.co",
       "invalid_system": "Invalid system selection. Please try again.",
       "unknown": "An unexpected error occurred. Please try again later."
     },
