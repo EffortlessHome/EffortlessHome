@@ -9,7 +9,7 @@ blueprint:
     lighttoturnon:
       name: Lights to turn off
       description: Turn off these lights (optional)
-      default: []
+      default: light.all_lights
       selector:
         entity:
           filter:
@@ -32,14 +32,20 @@ blueprint:
       default: []
       selector:
         action: {}
+    conditions:
+      name: Conditions
+      description: List of conditions that must be true for this automation to run. Each condition is a Home Assistant condition block. By default, checks that binary_sensor.someone_home_sensor is on.
+      default:
+        - condition: state
+          entity_id: binary_sensor.someone_home_sensor
+          state: "on"
+      selector:
+        condition: {}
 trigger:
   - platform: sun
     event: sunset
     offset: 0
-condition:
-  - condition: state
-    entity_id: binary_sensor.someone_home_sensor
-    state: "on"
+condition: !input conditions
 action:
   - service: light.turn_off
     target:

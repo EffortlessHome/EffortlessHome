@@ -657,6 +657,13 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
         _LOGGER.debug("[SomeoneHomeSensor] Initialized with state 'off'")
 
     async def async_added_to_hass(self):
+        # Restore previous state if available
+        last_state = await self.async_get_last_state()
+        if last_state is not None and last_state.state is not None:
+            self._state = last_state.state
+            _LOGGER.debug(f"[SomeoneHomeSensor] Restored state to '{self._state}' after restart.")
+        else:
+            _LOGGER.debug("[SomeoneHomeSensor] No previous state found, using default 'off'.")
         self.async_on_remove(
             self.hass.bus.async_listen("sleeping_switch_updated", self._handle_switch_event)
         )

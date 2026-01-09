@@ -8,6 +8,7 @@ blueprint:
     indoortempsensor:
       name: Indoor Temperature Sensor
       description: The indoor temperature sensor
+      default: sensor.average_temperature_sensor
       selector:
         entity:
           filter:
@@ -18,6 +19,7 @@ blueprint:
     upcomingweathertempsensor:
       name: Upcoming Weather Temperature Sensor
       description: The upcoming weather temperature sensor. We recommend using this sensor for this purpose = sensor.high_temperature_tomorrow_sensor
+      default: sensor.high_temperature_tomorrow_sensor
       selector:
         entity:
           filter:

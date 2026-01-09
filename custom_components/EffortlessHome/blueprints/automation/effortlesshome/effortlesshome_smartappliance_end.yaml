@@ -42,6 +42,7 @@ blueprint:
     appliance_switch:
       name: Dedicated appliance switch
       description: Use one of the defined Appliance Switches to convert the appliance to smart.
+      default: switch.smartappliance1
       selector:
         entity:
           domain:

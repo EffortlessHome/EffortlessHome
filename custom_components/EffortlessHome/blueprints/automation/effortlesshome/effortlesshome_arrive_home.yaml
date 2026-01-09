@@ -4,9 +4,18 @@ blueprint:
   domain: automation
   author: EffortlessHome
   input:
+    trigger:
+      name: Arrival Trigger
+      description: The sensor that indicates someone has arrived home
+      default: binary_sensor.someone_home_sensor
+      selector:
+        entity:
+          domain:
+            - binary_sensor
     on_target:
       name: Lights and switches to turn on
       description: Turn on these lights and switches (optional)
+      default: light.all_lights
       selector:
         target:
           entity:
@@ -16,6 +25,7 @@ blueprint:
     securityalarm:
       name: Security Alarm
       description: The security alarm to disarm
+      default: alarm_control_panel.effortlesshome
       selector:
         entity:
           filter:
@@ -39,7 +49,7 @@ blueprint:
         action: {}
 trigger:
   - platform: state
-    entity_id: binary_sensor.someone_home_sensor
+    entity_id: !input trigger
     from: "off"
     to: "on"
 action:

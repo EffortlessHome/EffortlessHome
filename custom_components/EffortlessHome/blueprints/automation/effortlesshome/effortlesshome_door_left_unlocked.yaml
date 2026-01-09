@@ -4,6 +4,14 @@ blueprint:
   domain: automation
   author: EffortlessHome
   input:
+    trigger:
+      name: Departure Trigger
+      description: The sensor that indicates everyone has left home
+      default: binary_sensor.someone_home_sensor
+      selector:
+        entity:
+          domain:
+            - binary_sensor  
     doorlock:
       name: Door Lock
       description: The door lock to lock (optional)
@@ -18,6 +26,7 @@ blueprint:
     door_sensor:
       name: Door Sensor Group
       description: Select the doors that you want to check for open.
+      default: binary_sensor.door_group_sensor
       selector:
         entity:
           domain:
@@ -36,7 +45,7 @@ blueprint:
         action: {}
 trigger:
   - platform: state
-    entity_id: binary_sensor.someone_home_sensor
+    entity_id: !input trigger
     from: "on"
     to: "off"
 

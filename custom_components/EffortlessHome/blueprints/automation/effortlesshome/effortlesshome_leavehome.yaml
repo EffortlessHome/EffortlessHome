@@ -4,20 +4,29 @@ blueprint:
   domain: automation
   author: EffortlessHome
   input:
+    trigger:
+      name: Arrival Trigger
+      description: The sensor that indicates someone has arrived home
+      default: binary_sensor.someone_home_sensor
+      selector:
+        entity:
+          domain:
+            - binary_sensor
     leave_trigger_delay:
       name: Delay After Determination of No One At Home To Trigger Actions
       description: Delay After Determination of No One At Home To Trigger Actions
-      default: 0
+      default: 300
       selector:
         number:
           min: 0.0
-          max: 300.0
+          max: 900.0
           unit_of_measurement: seconds
           mode: slider
           step: 1.0
     securityalarm:
       name: Security Alarm
       description: The security alarm to arm in away mode
+      default: alarm_control_panel.effortlesshome
       selector:
         entity:
           filter:
@@ -37,6 +46,7 @@ blueprint:
     off_target:
       name: Lights and switches to turn off
       description: Turn off these lights and switches (optional)
+      default: light.all_lights 
       selector:
         target:
           entity:
@@ -46,10 +56,21 @@ blueprint:
     door_sensor:
       name: Window/Door Sensor
       description: Select door or window sensor(s) that you want to check is open.
+      default: binary_sensor.door_group_sensor
       selector:
         entity:
           domain:
             - binary_sensor
+    person_input:
+      name: Person
+      description: The person to notify
+      selector:
+        entity:
+          domain: person
+    notification_message:
+      name: Notification message
+      description: Door or window left open message
+      default: Door or Window Left Open When Leaving Home
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)
@@ -58,7 +79,7 @@ blueprint:
         action: {}
 trigger:
   - platform: state
-    entity_id: binary_sensor.someone_home_sensor
+    entity_id: !input trigger
     from: "on"
     to: "off"
     for:
@@ -82,9 +103,12 @@ action:
             entity_id: !input door_sensor
             state: "on"
     then:
-      - service: notify.notify
-        metadata: {}
+      - service: effortlesshome.notify_person_service
         data:
-          message: Door or Window Left Open
+          title: "Door or Window Left Open"
+          message: !input notification_message
+          target: !input person_input
+          data:
+            priority: high
   - choose: []
     default: !input additional_actions

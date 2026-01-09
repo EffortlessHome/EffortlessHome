@@ -18,9 +18,19 @@ blueprint:
             - motion
             - presence
           multiple: true
+    securityalarm:
+      name: Security Alarm
+      description: The security alarm to arm in away mode
+      default: alarm_control_panel.effortlesshome
+      selector:
+        entity:
+          filter:
+            - domain:
+                - alarm_control_panel
+          multiple: false          
     arming_mode:
       name: Arming Mode
-      description: The arming mode to set.
+      description: The arming mode to check.
       default: armed_away
       selector:
         select:
@@ -41,13 +51,18 @@ variables:
   triggering_sensor: "{{ trigger }}"
 conditions:
   - condition: state
-    entity_id: alarm_control_panel.effortlesshome_alarm_panel
+    entity_id: !input securityalarm
     state: !input arming_mode
 action:
   - action: alarm_control_panel.alarm_trigger
     metadata: {}
     data: {}
     target:
-      entity_id: alarm_control_panel.effortlesshome_alarm_panel
+      entity_id: !input securityalarm  
+  - service: effortlesshome.create_alert_service
+    data:
+      alert_type: Security Alarm Trigger
+      alert_description: "Security Alarm Triggered by {{ triggering_sensor.entity_id }}"
+      status: Active  
   - choose: []
     default: !input additional_actions

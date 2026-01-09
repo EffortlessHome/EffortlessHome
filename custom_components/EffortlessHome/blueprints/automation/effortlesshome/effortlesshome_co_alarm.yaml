@@ -7,6 +7,7 @@ blueprint:
     carbonmonoxidealarm:
       name: Carbon Monoxide Alarm Sensor
       description: The triggering carbon monoxide alarm sensor(s)
+      default: binary_sensor.carbon_monoxide_group_sensor
       selector:
         entity:
           filter:
@@ -30,14 +31,13 @@ blueprint:
       default: []
       selector:
         action: {}
+
 trigger:
   - platform: state
     entity_id: !input carbonmonoxidealarm
     to: "On"
 action:
-  - service: notify.notify
-    data:
-      message: !input notification_message
+
   - service: effortlesshome.notify_person_service
     data:
       title: "Carbon Monoxide Alarm"
@@ -50,5 +50,6 @@ action:
       alert_type: "Carbon Monoxide Alarm"
       alert_description: !input notification_message
       status: Active
+      
   - choose: []
     default: !input additional_actions

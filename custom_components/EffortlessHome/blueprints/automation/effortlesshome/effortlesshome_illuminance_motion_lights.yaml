@@ -62,6 +62,15 @@ blueprint:
       default: []
       selector:
         action: {}
+    conditions:
+      name: Conditions
+      description: List of conditions that must be true for this automation to run. Each condition is a Home Assistant condition block. By default, checks that binary_sensor.sleeping_sensor is off.
+      default:
+        - condition: state
+          entity_id: binary_sensor.sleeping_sensor
+          state: "off"
+      selector:
+        condition: {}
 mode: restart
 max_exceeded: silent
 
@@ -71,33 +80,7 @@ trigger:
   from: "off"
   to: "on"
 
-condition:
-  condition: and
-  conditions:
-    - condition: numeric_state
-      entity_id: !input lux_entity
-      below: !input lux_level
-
 action:
-  - variables:
-      mylight: !input light_target 
-      valuequery: '{{ "sleeparea" not in labels(mylight.entity_id)  }}'
-
-      valuetemplate: "{{ valuequery }}"
-
-  - condition: or
-    conditions:
-      - condition: state
-        entity_id: binary_sensor.sleeping_sensor
-        state: "off"
-      - condition: and
-        conditions:
-          - condition: state
-            entity_id: binary_sensor.sleeping_sensor
-            state: "on"
-          - condition: template
-            value_template: >
-              {{ valuetemplate }}
 
   - service: light.turn_on
     target: !input light_target

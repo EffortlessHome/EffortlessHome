@@ -10,6 +10,7 @@ blueprint:
   input:
     window_sensor:
       name: Window/Door Sensor
+      default: binary_sensor.door_group_sensor
       description:
         Select the sensor that monitors your windows. Useful for controlling
         heating or cooling based on window status.
@@ -40,11 +41,11 @@ blueprint:
       description:
         Time to wait after the door or window opens before suspending climate
         control.
-      default: 0
+      default: 300
       selector:
         number:
           min: 0.0
-          max: 300.0
+          max: 900.0
           unit_of_measurement: seconds
           mode: slider
           step: 1.0
@@ -57,7 +58,7 @@ blueprint:
       selector:
         number:
           min: 0.0
-          max: 300.0
+          max: 900.0
           unit_of_measurement: seconds
           mode: slider
           step: 1.0

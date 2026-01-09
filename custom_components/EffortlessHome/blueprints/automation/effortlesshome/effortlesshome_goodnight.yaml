@@ -25,6 +25,7 @@ blueprint:
     off_target:
       name: Lights and switches to turn off
       description: Turn off these lights and switches (optional)
+      default: light.all_lights
       selector:
         target:
           entity:
@@ -34,6 +35,7 @@ blueprint:
     securityalarm:
       name: Security Alarm
       description: The security alarm to arm in night/home mode
+      default: alarm_control_panel.effortlesshome
       selector:
         entity:
           filter:
@@ -76,13 +78,20 @@ blueprint:
       default: []
       selector:
         action: {}
+    conditions:
+      name: Conditions
+      description: List of conditions that must be true for this automation to run. Each condition is a Home Assistant condition block. By default, checks that binary_sensor.sleeping_sensor is off.
+      default:
+        - condition: state
+          entity_id: binary_sensor.sleeping_sensor
+          state: "off"
+      selector:
+        condition: {}
 trigger:
   - platform: time
     at: !input goodnight_time
 condition:
-  - condition: state
-    entity_id: binary_sensor.sleeping_sensor
-    state: "off"
+  !input conditions
 action:
   - if:
       - condition: or
