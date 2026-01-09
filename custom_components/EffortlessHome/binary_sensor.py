@@ -17,8 +17,6 @@ from .const import ALARM_TYPE_MED_ALERT, ALARM_TYPE_MONITORING, DOMAIN, NAME
 
 _LOGGER = logging.getLogger(__name__)
 
-ENTITY_REGISTRY: dict[str, InBedSensor] = {}
-
 SCAN_INTERVAL = timedelta(minutes=5)
 
 async def async_setup_entry(
@@ -43,27 +41,6 @@ async def async_setup_entry(
     async_add_entities([SmartApplianceSensor("smartappliance2")])
     async_add_entities([SmartApplianceSensor("smartappliance3")])
 
-    area_registry = async_get_area_registry(hass)
-
-    sleep_areas = [
-        area for area in area_registry.areas.values()
-        if checkforlabel(area.labels, "sleeparea")
-    ]
-
-    sensors = []
-
-    _LOGGER.debug("Sleep Areas Found: %s", sleep_areas)
-
-    if sleep_areas is not None:
-        _LOGGER.debug("Creating inbedsensors with areas: %s", sleep_areas)
-
-        for area in sleep_areas:
-            _LOGGER.debug("Creating inbedsensor with area: %s", area)
-            sensor = InBedSensor(area.id)
-            ENTITY_REGISTRY[area.id] = sensor
-            sensors.append(sensor)
-
-    async_add_entities(sensors)
 
 def checkforlabel(labels, value_to_check) -> bool:
     """Check whether a label is in the list of labels."""
