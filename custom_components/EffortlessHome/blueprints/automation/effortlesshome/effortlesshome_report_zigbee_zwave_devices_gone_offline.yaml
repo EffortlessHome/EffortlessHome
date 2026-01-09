@@ -27,9 +27,16 @@ blueprint:
                 - lock
                 - light
                 - binary_sensor
-    actions:
-      name: Actions
-      description: Take any actions here. Use the param {{offline_devices}} in your message to inform what is offline.
+    person_input:
+      name: Person
+      description: The person to notify
+      selector:
+        entity:
+          domain: person                
+    additional_actions:
+      name: Additional Actions
+      description: Add additional actions to execute (Optional)
+      default: []
       selector:
         action: {}
 
@@ -54,7 +61,20 @@ trigger:
     at: !input time
 condition:
   - "{{ offline_devices != '' }}"
+
 action:
+  - service: effortlesshome.notify_person_service
+    data:
+      target: !input person_input
+      message: Door or Window Left Open Or Unlocked When No One Home
+      data:
+        priority: high
+  - service: effortlesshome.create_alert_service
+    data:
+      alert_type: Offline device(s)
+      alert_description: Offline device(s) detected
+      status: Active
   - choose: []
-    default: !input actions
+    default: !input additional_actions
+
 mode: single

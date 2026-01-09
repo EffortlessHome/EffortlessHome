@@ -1,7 +1,7 @@
 from homeassistant.components.button import ButtonEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import Entity
-from .const import DOMAIN, NAME, MANUFACTURER
+from .const import DOMAIN, NAME
 
 import logging
 _LOGGER = logging.getLogger(__name__)
@@ -22,9 +22,9 @@ class DeployLatestConfigButton(ButtonEntity):
     def device_info(self):
         """Return information about the device."""
         return {
-            "identifiers": {(DOMAIN, self._attr_config_entry_id)},
+            "identifiers": {(DOMAIN, NAME)},
             "name": NAME,
-            "manufacturer": MANUFACTURER,
+            "manufacturer": NAME,
             "model": NAME,
         }
 

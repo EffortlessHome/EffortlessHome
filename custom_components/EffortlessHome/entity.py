@@ -60,7 +60,7 @@ from .const import (
     RECOMMENDED_TOP_K,
     RECOMMENDED_TOP_P,
     TIMEOUT_MILLIS,
-    DOMAIN,
+    NAME,
 )
 
 if TYPE_CHECKING:
@@ -334,7 +334,7 @@ class GoogleGenerativeAILLMBaseEntity(Entity):
         self._attr_device_info = dr.DeviceInfo(
             identifiers={(DOMAIN, subentry.subentry_id)},
             name=subentry.title,
-            manufacturer="Google",
+            manufacturer=NAME,
             model=subentry.data.get(CONF_CHAT_MODEL, default_model).split("/")[-1],
             entry_type=dr.DeviceEntryType.SERVICE,
         )

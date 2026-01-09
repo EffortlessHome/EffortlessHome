@@ -91,9 +91,9 @@ class AutoArea:
     def device_info(self) -> DeviceInfo:
         """Information about this device."""
         return {
-            "identifiers": {(DOMAIN, DOMAIN)},
+            "identifiers": {(DOMAIN, NAME)},
             "name": NAME,
-            "model": VERSION,
+            "model": NAME,
             "manufacturer": NAME,
             "suggested_area": self.area_name,
         }

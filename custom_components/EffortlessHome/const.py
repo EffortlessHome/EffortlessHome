@@ -23,7 +23,6 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 VERSION = "1.1.25"
 NAME = "EffortlessHome"
 name_internal = "effortlesshome"
-MANUFACTURER = "@effortlesshome"
 DOMAIN = "effortlesshome"
 
 # Labels we want to ensure exist
