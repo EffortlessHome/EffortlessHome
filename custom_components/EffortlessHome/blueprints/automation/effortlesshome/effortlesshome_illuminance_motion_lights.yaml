@@ -97,7 +97,7 @@ action:
           - delay:
               hours: 0
               minutes: 0
-              seconds: !input light_timeout
+              seconds: !input no_motion_wait
               milliseconds: 0
           - service: homeassistant.turn_off
             target: !input light_target
