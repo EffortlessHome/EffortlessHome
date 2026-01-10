@@ -29,7 +29,6 @@ DOMAIN = "effortlesshome"
 LABELS = [
     "Favorite",
     "NotForSecurityMonitoring",
-    "SleepArea",
 ]
 
 # Configuration and options

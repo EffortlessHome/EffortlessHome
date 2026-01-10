@@ -4,7 +4,7 @@ blueprint:
     Turn on a light when motion is detected and illuminance is below a
     set Lux level. The light will dim before it is turned off to signal that it has
     not detected motion in quite a while. There is also two timers, on for daytime
-    and one for nighttime. Use label "SleepArea" on any lights you do not want to turn on while sleeping.
+    and one for nighttime. 
   domain: automation
   author: EffortlessHome
   input:
@@ -56,12 +56,7 @@ blueprint:
           unit_of_measurement: seconds
           step: 1.0
           mode: slider
-    additional_actions:
-      name: Additional Actions
-      description: Add additional actions to execute (Optional)
-      default: []
-      selector:
-        action: {}
+
     conditions:
       name: Conditions
       description: List of conditions that must be true for this automation to run. Each condition is a Home Assistant condition block. By default, checks that binary_sensor.sleeping_sensor is off.
@@ -71,6 +66,13 @@ blueprint:
           state: "off"
       selector:
         condition: {}
+    additional_actions:
+      name: Additional Actions
+      description: Add additional actions to execute (Optional)
+      default: []
+      selector:
+        action: {}
+
 mode: restart
 max_exceeded: silent
 
@@ -82,19 +84,23 @@ trigger:
 
 action:
 
-  - service: light.turn_on
-    target: !input light_target
-
-  - wait_for_trigger:
-      - trigger: state
-        entity_id: !input motion_entity
-        from: "on"
-        to: "off"
-        for:
-          seconds: !input no_motion_wait
-
-  - service: light.turn_off
-    target: !input light_target
-
-  - choose: []
-    default: !input additional_actions
+  - choose:
+      - conditions:
+          - condition: numeric_state
+            entity_id: !input lux_entity
+            below: !input lux_level
+          - condition: and
+            conditions: !input conditions
+        sequence:
+          - service: light.turn_on
+            target: !input light_target
+          - delay:
+              hours: 0
+              minutes: 0
+              seconds: !input light_timeout
+              milliseconds: 0
+          - service: homeassistant.turn_off
+            target: !input light_target
+          - choose: []
+            default: !input additional_actions            
+    default: []
