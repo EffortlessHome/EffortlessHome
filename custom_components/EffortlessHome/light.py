@@ -69,7 +69,7 @@ async def async_setup_entry(
 
 
 class AutoLightGroup(LightGroup):
-    """Cover group with area covers."""
+    """Area Lights."""
 
     def __init__(self, hass, auto_area: AutoArea, entity_ids: list[str]) -> None:
         """Initialize cover group."""
@@ -78,6 +78,7 @@ class AutoLightGroup(LightGroup):
         self._name_prefix = LIGHT_GROUP_PREFIX
         self._prefix = LIGHT_GROUP_ENTITY_PREFIX
         self.entity_ids: list[str] = entity_ids
+        self._entity_id = LIGHT_GROUP_ENTITY_PREFIX + self.auto_area.area_name
 
         LightGroup.__init__(
             self,
