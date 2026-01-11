@@ -402,6 +402,33 @@ class ConfigPanel extends HTMLElement {
     const comm = bridge.commissioning || {};
     const info = bridge.basicInformation || {};
 
+    // Generate a unique id for the factory reset button
+    const resetBtnId = `factory-reset-btn-${bridge.id}`;
+
+    // Attach the event listener after rendering
+    setTimeout(() => {
+      const btn = this.querySelector(`#${resetBtnId}`);
+      if (btn) {
+        btn.onclick = async () => {
+          if (!confirm("Factory reset this bridge? This cannot be undone.")) return;
+          btn.disabled = true;
+          btn.textContent = "Resetting...";
+          try {
+            const hostname = window.location.hostname;
+            const url = `http://${hostname}:8482/api/matter/bridges/${bridge.id}/actions/factory-reset`;
+            const resp = await fetch(url, { method: "GET" });
+            if (!resp.ok) throw new Error("Factory reset failed");
+            alert("Bridge factory reset successfully.");
+          } catch (err) {
+            alert("Factory reset failed: " + (err.message || err));
+          } finally {
+            btn.disabled = false;
+            btn.textContent = "Factory Reset";
+          }
+        };
+      }
+    }, 0);
+
     return `
       <div class="bridge-card">
         <div class="bridge-header">
@@ -425,6 +452,8 @@ class ConfigPanel extends HTMLElement {
            Devices: <strong>${bridge.deviceCount || 0}</strong><br>
            Vendor: ${info.vendorName || "Unknown"} | Version: ${info.softwareVersion || "N/A"}
         </div>
+
+        <button id="${resetBtnId}" class="btn btn-outline" style="margin-top:10px;align-self:flex-start;">Factory Reset</button>
       </div>
     `;
   }
