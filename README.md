@@ -9,12 +9,12 @@
 
 ## ✨ Key Features
 
-- **🛡️ Professional Security System** - Multi-mode alarm with intelligent triggering, medical alerts, and smart sensor grouping
+- **🛡️ Professional Security System** - Multi-mode alarm with intelligent triggering and smart sensor grouping. 24/7/365 Professional monitoring available.
 - **📍 Area-Aware Automation** - Dynamic presence detection, sleep modes, and privacy controls for every room
 - **🧠 38+ Automation Blueprints** - Pre-configured automations for security, safety, routines, and device management
 - **🌅 Intelligent Routines** - Automated goodmorning, goodnight, arrive home, and leave home sequences
 - **🔌 Smart Appliance Monitoring** - Convert any appliance into a smart device with cycle detection
-- **📊 Beautiful PWA Dashboard** - Modern web interface for complete home control
+- **📊 Beautiful, Advanced Dashboard** - Modern web interface for complete home control
 - **🎨 Custom Home Assistant Theme** - Polished UI designed specifically for EffortlessHome
 - **🛠️ Drag & Drop Management** - Easy area and label configuration without YAML
 
