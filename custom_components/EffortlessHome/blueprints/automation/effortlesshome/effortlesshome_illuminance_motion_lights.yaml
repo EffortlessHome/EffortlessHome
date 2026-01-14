@@ -57,6 +57,13 @@ blueprint:
           step: 1.0
           mode: slider
 
+    wait_for_clear:
+      name: Wait for motion to clear
+      description: Wait for the motion sensor to return to 'off' state before turning off the light. Prevents re-triggering with sensitive sensors like cameras.
+      default: true
+      selector:
+        boolean: {}
+
     conditions:
       name: Conditions
       description: List of conditions that must be true for this automation to run. Each condition is a Home Assistant condition block. By default, checks that binary_sensor.sleeping_sensor is off.
@@ -94,11 +101,23 @@ action:
         sequence:
           - service: light.turn_on
             target: !input light_target
-          - delay:
-              hours: 0
-              minutes: 0
-              seconds: !input no_motion_wait
-              milliseconds: 0
+          - choose:
+              - conditions: !input wait_for_clear
+                sequence:
+                  - wait_for_trigger:
+                      - platform: state
+                        entity_id: !input motion_entity
+                        to: "off"
+                    timeout:
+                      seconds: !input no_motion_wait
+                    continue_on_timeout: true
+                  - condition: template
+                    value_template: "{{ wait.trigger is not none }}"
+                  - delay:
+                      seconds: 5
+            default:
+              - delay:
+                  seconds: !input no_motion_wait
           - service: homeassistant.turn_off
             target: !input light_target
           - choose: []
