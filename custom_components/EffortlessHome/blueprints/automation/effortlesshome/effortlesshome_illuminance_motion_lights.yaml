@@ -102,7 +102,10 @@ action:
           - service: light.turn_on
             target: !input light_target
           - choose:
-              - conditions: !input wait_for_clear
+              - conditions:
+                  - condition: template
+                    value_template: "{{ wait_for_clear }}"
+                    alias: "Check if wait for motion to clear"
                 sequence:
                   - wait_for_trigger:
                       - platform: state
