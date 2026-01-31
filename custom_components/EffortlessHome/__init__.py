@@ -222,6 +222,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Unregister if already registered
     webhook.async_unregister(hass, "effortlesshome_push_token")
+    webhook.async_unregister(hass, "effortlesshome_location_update")
+
     security_webhook = SecurityAlarmWebhook(hass)
     await SecurityAlarmWebhook.async_setup_webhook(security_webhook)
 
@@ -239,6 +241,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
 
     _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
+
+    webhook_id = "effortlesshome_location_update"
+
+    webhook.async_register(
+        hass,
+        DOMAIN,
+        "EffortlessHome Location Update",
+        webhook_id,
+        handle_effortlesshome_location_update,
+    )
+
+    _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)    
 
     register_services(hass)
 
@@ -384,6 +398,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
     webhook.async_unregister(hass, "effortlesshome_push_token")
+    webhook.async_unregister(hass, "effortlesshome_location_update")
 
     return True
 
@@ -728,4 +743,67 @@ async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
         return web.Response(status=404, text="Person not found")
 
 
+#{
+#  "device_id": "unique_device_identifier",
+#  "device_name": "Samsung Galaxy S21",
+#  "latitude": 37.7749,
+#  "longitude": -122.4194,
+#  "gps_accuracy": 10.5,
+#  "altitude": 15.0,
+#  "speed": 0.0,
+#  "heading": 0.0,
+#  "timestamp": "2026-01-30T10:30:00.000Z",
+#  "attributes": {
+#    "platform": "android",
+#    "brand": "Samsung",
+#    "model": "SM-G991B",
+#    "version": "13",
+#    "sdk_int": 33
+#  }
+#}
+async def handle_effortlesshome_location_update(hass, webhook_id, request):
+    """Register EffortlessHome location update service."""
 
+    _LOGGER.info("[EffortlessHome] 📍 Handling location update webhook")
+    _LOGGER.info("[EffortlessHome] Request headers: %s", dict(request.headers))
+    try:
+        data = await request.json()
+        _LOGGER.info("[EffortlessHome] 📍 Location update payload: %s", data)
+    except Exception as e:
+        _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
+        return web.Response(status=400, text="Invalid JSON")
+
+    ####TODO: get user's email here and link this device tracker to them (local and online) #####
+
+    device_name = data.get("device_name")
+    device_id = data.get("device_id")
+    lat = data.get("latitude")
+    lon = data.get("longitude")
+    accuracy = data.get("accuracy", 30.0)
+
+    _LOGGER.info("[EffortlessHome] 📍 Parsed data - device_id: %s, lat: %s, lon: %s, accuracy: %s", device_id, lat, lon, accuracy)
+
+    if not device_id or lat is None or lon is None:
+        _LOGGER.error("[EffortlessHome] ❌ Missing required fields - device_id: %s, lat: %s, lon: %s", device_id, lat, lon)
+        return web.Response(status=400, text="Missing required fields")
+
+    device_id_new = device_id.lower().replace('@', '_').replace('.', '_').replace('-', '_').replace('{', '').replace('}', '')
+    entity_id = f"device_tracker.{device_id_new}"
+
+    _LOGGER.info("[EffortlessHome] 📍 Creating/updating device tracker: %s", entity_id)
+
+    # Update or create entity
+    hass.states.async_set(
+        entity_id,
+        "home",  # You can change this dynamically later
+        {
+            "latitude": lat,
+            "longitude": lon,
+            "gps_accuracy": accuracy,
+            "source_type": SOURCE_TYPE_GPS,
+            "friendly_name": f" {device_name}",
+        },
+    )
+
+    _LOGGER.info("[EffortlessHome] ✅ Location update successful for %s", entity_id)
+    return web.json_response({"status": "success", "message": "Location updated"})
