@@ -95,3 +95,44 @@ update_entity:
 deploylatestconfig:
   name: deploylatestconfig
   description: Deploy latest EffortlessHome config
+notify:
+  name: Send EffortlessHome Notification
+  description: Send a notification through EffortlessHome to a person, device, or notify service
+  fields:
+    message:
+      name: Message
+      description: The notification message body
+      example: "System alert from EffortlessHome"
+      required: true
+      selector:
+        text:
+          multiline: true
+
+    title:
+      name: Title
+      description: The notification title
+      example: "EffortlessHome Alert"
+      required: false
+      selector:
+        text:
+
+    target:
+      name: Target
+      description: The target person entity (person.*), device ID (device_*), or notify service (notify.*) to send to
+      example: "person.john_doe"
+      required: false
+      selector:
+        entity:
+          multiple: true
+          filter:
+            domain: 
+              - person
+              - notify
+
+    data:
+      name: Data
+      description: Additional notification data (image, tag, group, etc.)
+      example: '{"image": "/local/image.jpg", "tag": "alert_001"}'
+      required: false
+      selector:
+        object:

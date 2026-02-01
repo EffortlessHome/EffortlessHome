@@ -216,9 +216,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "cover",
             "light",
             "alarm_control_panel",
-            "button"
+            "button",
         ],
     )
+
+    # Set up the notify service
+    from .notify_service import async_setup_entry as async_setup_notify
+    await async_setup_notify(hass, entry, None)
 
     # Unregister if already registered
     webhook.async_unregister(hass, "effortlesshome_push_token")
@@ -396,6 +400,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
             "button",
         ],        
     )
+
+    # Unregister the notify service
+    hass.services.async_remove("effortlesshome", "notify")
 
     webhook.async_unregister(hass, "effortlesshome_push_token")
     webhook.async_unregister(hass, "effortlesshome_location_update")
