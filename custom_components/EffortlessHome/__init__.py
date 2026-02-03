@@ -231,10 +231,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ],
     )
 
-    # Set up the notify service
-    from .notify_service import async_setup_entry as async_setup_notify
-    await async_setup_notify(hass, entry, None)
-
     # Unregister if already registered
     webhook.async_unregister(hass, "effortlesshome_push_token")
     webhook.async_unregister(hass, "effortlesshome_location_update")
