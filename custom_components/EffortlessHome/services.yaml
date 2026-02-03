@@ -6,6 +6,10 @@ createcleanmotionfilesservice:
       description: The age of the files to remove. Default 30 days.
       example: 30
 
+get_firebase_config:
+  description: Get Firebase configuration from Oasira for mobile_app setup
+  fields: {}
+
 add_label_to_entity:
   description: add a label to an entity
   fields:
