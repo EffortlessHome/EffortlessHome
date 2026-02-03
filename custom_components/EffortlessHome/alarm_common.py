@@ -119,7 +119,10 @@ async def async_createsecurityalarm(pendingAlarm):
 
     # Check for feature id 3 in plan features
     plan_features = hass.data[DOMAIN].get("plan_features")
-    has_feature_3 = False
+
+    #TODO: Jermie - fix api and remove this workaround
+    has_feature_3 = True #False
+
     if plan_features:
         # plan_features may be a dict with a 'features' key or a list of dicts
         features = plan_features.get("features") if isinstance(plan_features, dict) else None
@@ -141,7 +144,6 @@ async def async_createsecurityalarm(pendingAlarm):
 
     _LOGGER.info("System ID: %s", hass.data[DOMAIN].get("systemid"))  
     _LOGGER.info("Email Address: %s", hass.data[DOMAIN].get("username"))  
-
 
     # Populate alarm_data with the actual triggering sensor
     alarm_data = {
