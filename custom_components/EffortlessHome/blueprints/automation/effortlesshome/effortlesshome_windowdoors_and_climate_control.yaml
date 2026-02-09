@@ -30,12 +30,7 @@ blueprint:
           domain:
             - climate
           multiple: true
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     window_open_delay:
       name: Delay After Window Opens
       description:
@@ -93,9 +88,8 @@ action:
             target:
               entity_id: !input target_climate
 
-          - service: effortlesshome.notify_person_service
+          - service: notify.effortlesshome
             data:
-              target: !input person_input
               title: Climate Control Disabled
               message: !input notification_message
               data:

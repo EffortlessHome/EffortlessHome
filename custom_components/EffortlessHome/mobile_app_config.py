@@ -51,7 +51,34 @@ async def setup_mobile_app_config(
         firebase_config = await oasira_client.get_firebase_config()
         
         _LOGGER.info("Retrieved Firebase config from Oasira")
-        _LOGGER.debug("Firebase config keys: %s", firebase_config.keys())
+        _LOGGER.debug("Firebase config: %s", firebase_config)
+        
+        # Check if we got valid data
+        if not firebase_config or not isinstance(firebase_config, dict):
+            _LOGGER.error("Invalid Firebase config received from Oasira: %s", firebase_config)
+            return {}
+        
+        # Check if this is a service account JSON (wrapped in Google_Firebase field)
+        if "Google_Firebase" in firebase_config:
+            import json
+            try:
+                service_account_str = firebase_config["Google_Firebase"]
+                service_account = json.loads(service_account_str)
+                
+                _LOGGER.info(
+                    "Received Firebase service account credentials. "
+                    "Note: mobile_app integration requires FCM legacy credentials (sender_id/server_key), "
+                    "but received service account JSON. "
+                    "Service account is used by notify.effortlesshome_firebase instead."
+                )
+                
+                # Service account doesn't have the FCM legacy credentials we need
+                # Return empty to indicate mobile_app can't be configured with this
+                return {}
+                
+            except json.JSONDecodeError as e:
+                _LOGGER.error("Failed to parse Google_Firebase JSON: %s", e)
+                return {}
         
         # Extract required fields for mobile_app integration
         # The exact field names depend on what Oasira returns
@@ -92,12 +119,13 @@ async def setup_mobile_app_config(
             mobile_app_config["firebase"] = firebase_sub_config
             
         if not mobile_app_config.get("fcm_sender_id") or not mobile_app_config.get("firebase", {}).get("server_key"):
-            _LOGGER.warning(
-                "Incomplete Firebase config from Oasira. "
-                "Missing fcm_sender_id or server_key. "
-                "Received config: %s",
-                firebase_config
+            _LOGGER.info(
+                "Firebase config does not contain FCM legacy credentials (sender_id/server_key). "
+                "mobile_app integration cannot be auto-configured. "
+                "Available keys in response: %s",
+                list(firebase_config.keys())
             )
+            return {}
             
         return mobile_app_config
         
@@ -113,8 +141,19 @@ async def register_mobile_app_config(
     """
     Register mobile_app configuration with Home Assistant.
     
-    This function programmatically configures the mobile_app integration
-    without requiring manual configuration.yaml entries.
+    NOTE: Home Assistant's built-in mobile_app integration does NOT support
+    programmatic configuration via hass.data. It requires manual configuration
+    in configuration.yaml or its own config flow.
+    
+    This function stores the config for reference by EffortlessHome's custom
+    notification services, but does NOT configure the mobile_app integration itself.
+    
+    To use mobile_app notifications, users must manually add to configuration.yaml:
+    
+    mobile_app:
+      fcm_sender_id: "YOUR_SENDER_ID"
+      firebase:
+        server_key: "YOUR_SERVER_KEY"
     
     Args:
         hass: Home Assistant instance
@@ -124,13 +163,18 @@ async def register_mobile_app_config(
         True if registration successful, False otherwise
     """
     try:
-        # Store config in hass.data for mobile_app to access
-        if "mobile_app" not in hass.data:
-            hass.data["mobile_app"] = {}
+        # Store config in hass.data for EffortlessHome's custom notification services
+        from .const import DOMAIN
+        if DOMAIN not in hass.data:
+            hass.data[DOMAIN] = {}
             
-        hass.data["mobile_app"]["effortlesshome_fcm_config"] = mobile_app_config
+        # Store under EffortlessHome domain, not mobile_app
+        hass.data[DOMAIN]["firebase_fcm_config"] = mobile_app_config
         
-        _LOGGER.info("Registered EffortlessHome FCM config with mobile_app integration")
+        _LOGGER.info(
+            "Stored Firebase FCM config for EffortlessHome notification services. "
+            "Note: mobile_app integration requires manual configuration.yaml setup."
+        )
         _LOGGER.debug("FCM Sender ID: %s", mobile_app_config.get("fcm_sender_id", "Not set"))
         
         return True

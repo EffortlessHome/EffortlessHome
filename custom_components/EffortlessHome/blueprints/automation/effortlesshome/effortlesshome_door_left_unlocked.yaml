@@ -31,12 +31,7 @@ blueprint:
         entity:
           domain:
             - binary_sensor
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)
@@ -59,9 +54,8 @@ condition:
         entity_id: !input doorlock
         state: "unlocked"
 action:
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
-      target: !input person_input
       message: Door or Window Left Open Or Unlocked When No One Home
       data:
         priority: high

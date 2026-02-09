@@ -27,13 +27,6 @@ blueprint:
             - switch
           multiple: false
 
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
-
     notification_message:
       name: Notification message
       description: "Default: Appliance Started"
@@ -66,9 +59,8 @@ variables:
   clickActionURL: !input data_clickaction_url
 
 action:
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
-      target: !input person_input
       title: !input notification_message
       message: !input notification_message
       data:

@@ -27,12 +27,7 @@ blueprint:
       selector:
         entity:
           domain: sensor
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     notification_message:
       name: Notification message
       description: "Humidity Sensor Activated Message"
@@ -63,9 +58,8 @@ variables:
   clickActionURL: !input data_clickaction_url
 
 action:
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
-      target: !input person_input
       title: Humidity Sensor Activated
       message: !input notification_message
       data:

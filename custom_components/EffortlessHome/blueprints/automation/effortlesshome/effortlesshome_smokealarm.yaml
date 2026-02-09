@@ -15,12 +15,7 @@ blueprint:
                 - binary_sensor
                 - group
           multiple: true
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     notification_message:
       name: Notification message
       description: Smoke Detector Activated Message
@@ -42,9 +37,8 @@ trigger:
     entity_id: !input smokealarm
     to: "on"
 action:
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
-      target: !input person_input
       message: !input notification_message
       title: Smoke Alarm Activated
       data:

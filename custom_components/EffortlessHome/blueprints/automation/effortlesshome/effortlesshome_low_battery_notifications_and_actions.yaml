@@ -37,12 +37,7 @@ blueprint:
           entity:
             - device_class:
                 - battery
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     notification_title:
       name: Notification title
       description: 'Default: "Battery Check Notification"'
@@ -136,9 +131,8 @@ trigger:
     id: t1
 
 action:
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
-      target: !input person_input
       title: !input notification_title
       message: "Battery and Sensor Check Result. Sensors: {{ sensors_names }} and Unavailable: {{ unavailable_sensors_names}}"
       data:

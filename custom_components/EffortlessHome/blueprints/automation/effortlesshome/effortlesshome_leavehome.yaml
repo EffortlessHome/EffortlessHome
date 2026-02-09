@@ -61,12 +61,7 @@ blueprint:
         entity:
           domain:
             - binary_sensor
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     notification_message:
       name: Notification message
       description: Door or window left open message
@@ -103,11 +98,10 @@ action:
             entity_id: !input door_sensor
             state: "on"
     then:
-      - service: effortlesshome.notify_person_service
+      - service: notify.effortlesshome
         data:
           title: "Door or Window Left Open"
           message: !input notification_message
-          target: !input person_input
           data:
             priority: high
   - choose: []

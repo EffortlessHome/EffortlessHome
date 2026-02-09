@@ -9,12 +9,15 @@ from os import path, walk
 from pathlib import Path
 import shutil
 import subprocess
+import time
 from typing import TYPE_CHECKING, List
 
 import aiohttp
 
 from google.api_core.exceptions import GoogleAPIError
 from google import genai
+from google.auth import jwt
+from google.auth.crypt import rsa
 import voluptuous as vol
 
 from homeassistant.components.recorder import get_instance
@@ -67,13 +70,11 @@ from .alarm_common import (
 from .area_manager import AreaManager
 from .auto_area import AutoArea
 
-from .person import eh_person
 from oasira import OasiraAPIClient, OasiraAPIError
 
 from .const import (
     DOMAIN,
     LABELS,
-    WEBHOOK_UPDATE_PUSH_TOKEN,
     CONF_EMAIL, 
     ATTR_LATITUDE,
     ATTR_LONGITUDE,
@@ -96,7 +97,11 @@ from .binary_sensor import updateEntity
 from homeassistant.components import frontend
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.helpers.event import async_track_time_change
-from homeassistant.components import person
+from homeassistant.components.notify import (
+    ATTR_DATA,
+    ATTR_TITLE,
+    BaseNotificationService,
+)
 
 try:
     # Older versions (pre-2025)
@@ -116,6 +121,10 @@ LOCATION_SERVICE_SCHEMA = vol.Schema({
 
 _LOGGER = logging.getLogger(__name__)
 
+GOOGLE_OAUTH_URL = "https://oauth2.googleapis.com/token"
+FIREBASE_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
+FCM_URL = "https://fcm.googleapis.com/v1/projects/effortlesshome-oauth/messages:send"
+
 class HASSComponent:
     """Hasscomponent."""
 
@@ -131,6 +140,157 @@ class HASSComponent:
     def get_hass(cls):  
         """Get Hass."""
         return cls.hass_instance
+
+
+class EffortlessHomeNotificationService(BaseNotificationService):
+    """EffortlessHome notification service for all registered devices."""
+
+    def __init__(self, hass: HomeAssistant):
+        """Initialize the service."""
+        self.hass = hass
+
+    async def async_send_message(self, message: str = "", **kwargs):
+        """Send a notification message to all registered devices."""
+        title = kwargs.get(ATTR_TITLE, "EffortlessHome")
+        data = kwargs.get(ATTR_DATA, {})
+        notify_create(self.hass, message, title=title)
+
+        await self._send_fcm_notification(message, title, data)
+
+    async def _send_fcm_notification(self, message: str, title: str, data: dict) -> None:
+        devices = self.hass.data.get(DOMAIN, {}).get("notification_devices", {})
+        if not devices:
+            _LOGGER.warning("No registered notification devices")
+            return
+
+        access_token = await self._get_firebase_access_token()
+        if not access_token:
+            _LOGGER.error("Unable to get Firebase access token")
+            return
+
+        session = async_get_clientsession(self.hass)
+        headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+
+        payload_data = None
+        if data:
+            payload_data = {str(k): str(v) for k, v in data.items()}
+
+        for device_name, device_info in devices.items():
+            token = device_info.get("token")
+            if not token:
+                _LOGGER.warning("Skipping device without token: %s", device_name)
+                continue
+
+            payload = {
+                "message": {
+                    "token": token,
+                    "notification": {"title": title, "body": message},
+                }
+            }
+            if payload_data:
+                payload["message"]["data"] = payload_data
+
+            try:
+                async with session.post(FCM_URL, headers=headers, json=payload) as resp:
+                    if resp.status != 200:
+                        text = await resp.text()
+                        _LOGGER.error("FCM push failed for %s: %s", device_name, text)
+                    else:
+                        _LOGGER.info("FCM push sent to %s", device_name)
+            except Exception as exc:
+                _LOGGER.error("FCM push error for %s: %s", device_name, exc)
+
+    async def _get_firebase_access_token(self) -> str | None:
+        try:
+            id_token = self.hass.data.get(DOMAIN, {}).get("id_token")
+            if not id_token:
+                _LOGGER.error("Missing id_token for Firebase access")
+                return None
+
+            async with OasiraAPIClient(id_token=id_token) as client:
+                firebase_config = await client.get_firebase_config()
+
+            google_firebase_raw = firebase_config.get("Google_Firebase") if firebase_config else None
+            if not google_firebase_raw:
+                _LOGGER.error("Missing Google_Firebase config from Oasira")
+                return None
+
+            service_account_info = json.loads(google_firebase_raw)
+            private_key = service_account_info["private_key"]
+            client_email = service_account_info["client_email"]
+
+            now = int(time.time())
+            payload = {
+                "iss": client_email,
+                "scope": FIREBASE_SCOPE,
+                "aud": GOOGLE_OAUTH_URL,
+                "iat": now,
+                "exp": now + 3600,
+            }
+
+            signer = rsa.RSASigner.from_string(private_key)
+            assertion = jwt.encode(signer, payload)
+
+            session = async_get_clientsession(self.hass)
+            async with session.post(
+                GOOGLE_OAUTH_URL,
+                data={
+                    "grant_type": "urn:ietf:params:oauth:grant-type:jwt-bearer",
+                    "assertion": assertion,
+                },
+            ) as resp:
+                result = await resp.json()
+                if "access_token" not in result:
+                    _LOGGER.error("Firebase OAuth error: %s", result)
+                    return None
+
+                return result["access_token"]
+        except OasiraAPIError as exc:
+            _LOGGER.error("Failed to fetch Firebase config: %s", exc)
+            return None
+        except Exception as exc:
+            _LOGGER.exception("Failed to refresh Firebase access token: %s", exc)
+            return None
+
+
+async def async_setup_notification_platform(hass: HomeAssistant):
+    """Set up the EffortlessHome notification platform."""
+    try:
+        service = EffortlessHomeNotificationService(hass)
+
+        async def handle_notify_service(call: ServiceCall) -> None:
+            """Handle notify.effortlesshome service calls."""
+            message = call.data.get("message", "")
+            title = call.data.get("title")
+            data = call.data.get("data")
+
+            kwargs = {}
+            if title is not None:
+                kwargs[ATTR_TITLE] = title
+            if data is not None:
+                kwargs[ATTR_DATA] = data
+
+            await service.async_send_message(message=message, **kwargs)
+
+        # Register the notification service
+        hass.services.async_register(
+            "notify",
+            "effortlesshome",
+            handle_notify_service,
+            schema=vol.Schema({
+                vol.Required("message"): cv.string,
+                vol.Optional("title"): cv.string,
+                vol.Optional("data"): dict,
+            }),
+        )
+
+        _LOGGER.info("✅ EffortlessHome notification service registered: notify.effortlesshome")
+        return True
+
+    except Exception as e:
+        _LOGGER.error(f"Failed to setup notification platform: {e}", exc_info=True)
+        return False
+
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up integration from a config entry."""
@@ -169,11 +329,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 from .mobile_app_config import setup_mobile_app_integration
                 mobile_app_success = await setup_mobile_app_integration(hass, api_client)
                 if mobile_app_success:
-                    _LOGGER.info("Mobile app integration configured from Oasira Firebase config")
+                    _LOGGER.info(
+                        "✅ Firebase config retrieved from Oasira and stored for EffortlessHome services. "
+                        "Note: Home Assistant's mobile_app integration requires manual configuration.yaml setup. "
+                        "Use 'effortlesshome.get_firebase_config' service to view the config."
+                    )
                 else:
-                    _LOGGER.warning("Failed to configure mobile app integration from Oasira")
+                    _LOGGER.info(
+                        "Firebase config not available from Oasira. "
+                        "This is optional and does not affect other features."
+                    )
             except Exception as mobile_exc:
-                _LOGGER.warning("Could not setup mobile app integration: %s", mobile_exc)
+                _LOGGER.warning("Could not setup mobile app integration: %s", mobile_exc, exc_info=True)
 
             hass.data[DOMAIN] = {
                 "fullname": parsed_data["fullname"],
@@ -204,6 +371,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "instructions_json": parsed_data["instructions_json"],
                 "plan": parsed_data["name"],
                 "plan_features": plan_features,
+                "notification_devices": {},
             }
         except OasiraAPIError as e:
             _LOGGER.error("Failed to fetch customer/system data: %s", e)
@@ -231,8 +399,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ],
     )
 
+    # Register custom notification platform
+    await async_setup_notification_platform(hass)
+
     # Unregister if already registered
-    webhook.async_unregister(hass, "effortlesshome_push_token")
+    push_token_webhook_ids = [
+        "effortlesshome_push_token",
+        "effortlesshome_update_push_token",
+    ]
+    for webhook_id in push_token_webhook_ids:
+        webhook.async_unregister(hass, webhook_id)
     webhook.async_unregister(hass, "effortlesshome_location_update")
 
     security_webhook = SecurityAlarmWebhook(hass)
@@ -241,17 +417,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     broadcast_webhook = BroadcastWebhook(hass)
     await BroadcastWebhook.async_setup_webhook(broadcast_webhook)
 
-    webhook_id = "effortlesshome_push_token"
+    for webhook_id in push_token_webhook_ids:
+        webhook.async_register(
+            hass,
+            DOMAIN,
+            "EffortlessHome Push Token",
+            webhook_id,
+            handle_effortlesshome_push_token_webhook,
+        )
 
-    webhook.async_register(
-        hass,
-        DOMAIN,
-        "EffortlessHome Push Token",
-        webhook_id,
-        handle_effortlesshome_push_token_webhook,
-    )
-
-    _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
+        _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
 
     webhook_id = "effortlesshome_location_update"
 
@@ -411,7 +586,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Unregister the notify service
     hass.services.async_remove("effortlesshome", "notify")
 
-    webhook.async_unregister(hass, "effortlesshome_push_token")
+    push_token_webhook_ids = [
+        "effortlesshome_push_token",
+        "effortlesshome_update_push_token",
+    ]
+    for webhook_id in push_token_webhook_ids:
+        webhook.async_unregister(hass, webhook_id)
     webhook.async_unregister(hass, "effortlesshome_location_update")
 
     return True
@@ -453,12 +633,6 @@ def register_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(
         DOMAIN, "createcleanmotionfilesservice", cleanmotionfiles
-    )
-
-    hass.services.async_register(
-        DOMAIN,
-        "notify_person_service",
-        handle_notify_person_service,
     )
 
     # Register our service with Home Assistant.
@@ -627,79 +801,6 @@ async def cleanmotionfiles(calldata):
         _LOGGER.error(f"Error deleting snapshots: {process.stderr.decode()}")
 
 
-async def handle_notify_person_service(calldata):
-    """Send a notification message only to a person’s Mobile App device trackers. Now with error handling and debug logging."""
-    _LOGGER.info("[handle_notify_person_service] Called with calldata: %s", calldata.data)
-
-    try:
-        hass = HASSComponent.get_hass()
-        person_name_list = calldata.data.get("target")
-
-        if not person_name_list:
-            _LOGGER.info("[handle_notify_person_service] No person provided in target list.")
-            return
-
-        message = calldata.data.get("message")
-        if not message:
-            _LOGGER.info("[handle_notify_person_service] No message provided.")
-            return
-
-        title = calldata.data.get("title")
-        data = calldata.data.get("data")
-
-        ent_reg = entity_registry.async_get(hass)
-
-        for person_name in person_name_list:
-            try:
-                person_entity = f"{person_name.lower()}"
-                _LOGGER.debug(f"[handle_notify_person_service] Looking up person entity: {person_entity}")
-                person_entry = ent_reg.async_get(person_entity)
-
-                if person_entry is None:
-                    _LOGGER.warning(f"[handle_notify_person_service] Person entity {person_entity} not found.")
-                    continue
-
-                _LOGGER.debug(f"[handle_notify_person_service] Person entry found: {person_entry}")
-
-                # Get device trackers associated with this person
-                device_trackers = person.entities_in_person(hass, person_entity)
-                _LOGGER.debug(f"[handle_notify_person_service] Device trackers for {person_name}: {device_trackers}")
-
-                if not device_trackers:
-                    _LOGGER.warning(f"[handle_notify_person_service] No device trackers found for person {person_name}.")
-                    continue
-
-                # Filter only device_trackers from the Mobile App integration
-                mobile_app_devices = []
-                for device_tracker in device_trackers:
-                    tracker_entry = ent_reg.async_get(device_tracker)
-                    if tracker_entry and tracker_entry.platform == "mobile_app":
-                        mobile_app_devices.append(device_tracker)
-
-                _LOGGER.debug(f"[handle_notify_person_service] Mobile App device trackers for {person_name}: {mobile_app_devices}")
-
-                if not mobile_app_devices:
-                    _LOGGER.warning(f"[handle_notify_person_service] No Mobile App device trackers found for {person_name}.")
-                    continue
-
-                # Send notifications to Mobile App notify services
-                for device_tracker in mobile_app_devices:
-                    try:
-                        notify_service = device_tracker.replace("device_tracker.", "mobile_app_")
-                        _LOGGER.info(f"[handle_notify_person_service] Sending notification to {notify_service} for {person_name}")
-                        await hass.services.async_call(
-                            "notify",
-                            notify_service,
-                            {"message": message, "title": title, "data": data},
-                            blocking=False,
-                        )
-                    except Exception as notify_err:
-                        _LOGGER.error(f"[handle_notify_person_service] Error sending notification to {notify_service} for {person_name}: {notify_err}")
-            except Exception as person_err:
-                _LOGGER.error(f"[handle_notify_person_service] Error processing person {person_name}: {person_err}")
-    except Exception as err:
-        _LOGGER.exception(f"[handle_notify_person_service] Unexpected error: {err}")
-
 async def handle_get_firebase_config(call: ServiceCall) -> None:
     """Handle the get_firebase_config service call."""
     hass = HASSComponent.get_hass()
@@ -736,10 +837,10 @@ Firebase Configuration retrieved from Oasira:
 {yaml_config}
 ```
 
-**Note:** This configuration has been automatically applied to your Home Assistant mobile_app integration. 
-You do NOT need to manually add this to configuration.yaml.
+**Important:** Home Assistant's mobile_app integration requires manual configuration.
+To enable mobile app notifications, add the above YAML to your configuration.yaml file, then restart Home Assistant.
 
-For manual configuration, copy the above YAML to your configuration.yaml file.
+Without this configuration, mobile app notifications will not work.
 """
                 notify_create(
                     hass,
@@ -791,36 +892,25 @@ async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
         _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
         return web.Response(status=400, text="Invalid JSON")
 
-    email = data.get("email")
     token = data.get("token")
     device_name = data.get("device_name")
     platform_name = data.get("platform")
 
-    _LOGGER.info("[EffortlessHome] 🔔 Parsed data - email: %s, device_name: %s, platform: %s, token_length: %s", 
-                 email, device_name, platform_name, len(token) if token else 0)
+    _LOGGER.info("[EffortlessHome] 🔔 Parsed data - device_name: %s, platform: %s, token_length: %s", 
+                 device_name, platform_name, len(token) if token else 0)
 
-    if not email:
-        _LOGGER.error("[EffortlessHome] ❌ Webhook called without 'email' field.")
-        return web.Response(status=400, text="Missing email field")
+    if not token or not device_name:
+        _LOGGER.error("[EffortlessHome] ❌ Webhook called without required fields (token, device_name).")
+        return web.Response(status=400, text="Missing token or device_name")
 
-    persons = hass.data.get(DOMAIN, {}).get("persons", [])
-    _LOGGER.info("[EffortlessHome] 🔔 Searching for person among %s registered persons", len(persons))
-    
-    targetperson = None
-    for person in persons:
-        if person.name == email:
-            targetperson = person
-            break
+    devices = hass.data.setdefault(DOMAIN, {}).setdefault("notification_devices", {})
+    devices[device_name] = {
+        "token": token,
+        "platform": platform_name,
+    }
 
-    if targetperson is not None:
-        _LOGGER.info("[EffortlessHome] 🔔 Found target person: %s", targetperson.name)
-        await targetperson.async_set_notification_devices(hass, token, device_name, platform_name)
-        _LOGGER.info("[EffortlessHome] ✅ Push token registered successfully for %s", email)
-        return web.json_response({"status": "success", "message": "Token registered"})
-    else:
-        _LOGGER.warning("[EffortlessHome] ❌ Person not found for email: %s (available: %s)", 
-                       email, [p.name for p in persons])
-        return web.Response(status=404, text="Person not found")
+    _LOGGER.info("[EffortlessHome] ✅ Push token registered successfully for %s", device_name)
+    return web.json_response({"status": "success", "message": "Token registered"})
 
 
 #{

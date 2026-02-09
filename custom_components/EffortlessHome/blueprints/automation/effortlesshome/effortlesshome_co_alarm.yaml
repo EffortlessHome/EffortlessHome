@@ -15,12 +15,7 @@ blueprint:
                 - binary_sensor
                 - group
           multiple: true
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     notification_message:
       name: Notification message
       description: Carbon Monoxide Alarm Message
@@ -38,11 +33,10 @@ trigger:
     to: "On"
 action:
 
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
       title: "Carbon Monoxide Alarm"
       message: !input notification_message
-      target: !input person_input
       data:
         priority: high
   - service: effortlesshome.create_alert_service

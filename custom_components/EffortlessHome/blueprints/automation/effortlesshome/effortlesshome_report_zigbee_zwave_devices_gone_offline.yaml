@@ -27,12 +27,7 @@ blueprint:
                 - lock
                 - light
                 - binary_sensor
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person                
+             
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)
@@ -63,9 +58,8 @@ condition:
   - "{{ offline_devices != '' }}"
 
 action:
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
-      target: !input person_input
       message: 'Offline device(s) detected: {{ offline_devices }}'
       data:
         priority: high

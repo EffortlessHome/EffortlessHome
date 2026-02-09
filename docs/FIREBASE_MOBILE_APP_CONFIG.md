@@ -37,7 +37,9 @@ mobile_app:
 
 ## What This Enables
 
-With Firebase configured, your custom mobile app can:
+**Note:** The automatic configuration requires **FCM Legacy API credentials** (sender_id and server_key) from Oasira. If your Oasira account only has Firebase Admin SDK service account credentials, this feature will not be available. The service account credentials are used by the `notify.effortlesshome_firebase` service instead.
+
+With FCM Legacy API configured, your custom mobile app can:
 
 - ✅ Receive push notifications from Home Assistant
 - ✅ Update device location via the mobile_app integration
@@ -93,6 +95,13 @@ Call the service `effortlesshome.get_firebase_config` to see your current Fireba
 **Issue**: "Failed to configure mobile app integration from Oasira"
 - **Solution**: Check that your Oasira account has Firebase configuration set up
 - **Solution**: Verify your system_id and id_token are valid
+
+**Issue**: "Firebase config does not contain FCM legacy credentials"
+- **Explanation**: Your Oasira account has Firebase Admin SDK service account credentials, not FCM Legacy API credentials
+- **Solution**: These are different types of credentials:
+  - **Service Account**: Used for server-side operations (already used by `notify.effortlesshome_firebase`)
+  - **FCM Legacy**: Required for mobile_app integration (sender_id + server_key)
+- **Workaround**: Continue using `notify.effortlesshome_firebase` for notifications, or contact Oasira support to add FCM Legacy credentials
 
 **Issue**: No Firebase config fields
 - **Solution**: The Oasira API may not have Firebase credentials for your account

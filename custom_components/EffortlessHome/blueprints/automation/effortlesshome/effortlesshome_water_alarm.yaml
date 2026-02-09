@@ -17,12 +17,7 @@ blueprint:
       name: Notification message
       description: "Water Leak Sensor Activated Message"
       default: "Water Sensor Activated. Check for water immediately."
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     data_clickaction_url:
       name: URL to Navigate (Optional)
       description:
@@ -43,9 +38,8 @@ variables:
   clickActionURL: !input data_clickaction_url
 
 action:
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
-      target: !input person_input
       title: Water Sensor Activated
       message: !input notification_message
       data:

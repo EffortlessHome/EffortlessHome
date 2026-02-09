@@ -24,12 +24,7 @@ blueprint:
           domain:
             - camera
           multiple: false
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     notification_title:
       name: Notification title
       description: 'Default: "Motion detected!"'
@@ -96,9 +91,8 @@ action:
     entity_id: binary_sensor.motion_notification_sensor
     state: "on"
 
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
-      target: !input person_input
       title: !input notification_title
       message: !input notification_message
       data:

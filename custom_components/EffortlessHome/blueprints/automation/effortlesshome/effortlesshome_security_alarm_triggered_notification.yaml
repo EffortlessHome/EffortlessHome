@@ -4,12 +4,7 @@ blueprint:
   domain: automation
   author: EffortlessHome
   input:
-    person_input:
-      name: Person
-      description: The person to notify
-      selector:
-        entity:
-          domain: person
+
     notification_message:
       name: Notification message
       description: The notification message to send when the Security Alarm has been triggered.
@@ -38,9 +33,8 @@ action:
     variables:
       action_confirm: "{{ 'CONFIRM_' ~ context.id }}"
       action_dismiss: "{{ 'DISMISS_' ~ context.id }}"
-  - service: effortlesshome.notify_person_service
+  - service: notify.effortlesshome
     data:
-      target: !input person_input
       message: !input notification_message
       title: "Security Alarm Triggered"
       data:

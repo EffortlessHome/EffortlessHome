@@ -29,26 +29,6 @@ add_label_to_entity:
       selector:
         label:
 
-notify_person_service:
-  description: Notify a person
-  fields:
-    target:
-      name: target
-      description: The entity_id of the EffortlessHome person entity to notify
-      example: "sensor.jermie_effortlesshome_ai"
-    message:
-      name: Message
-      description: The message to send
-      example: 'Hello, this is a notification'
-    title:
-      name: Title
-      description: The title of the notification
-      example: 'Notification'
-    data:
-      name: data
-      description: attached data to the message
-      example: 'image: "test.jpg"'
-
 create_alert_service:
   description: Create an alert record
   fields:
@@ -101,7 +81,7 @@ deploylatestconfig:
   description: Deploy latest EffortlessHome config
 notify:
   name: Send EffortlessHome Notification
-  description: Send a notification through EffortlessHome to a person, device, or notify service
+  description: Send a notification through EffortlessHome to all registered devices
   fields:
     message:
       name: Message
@@ -120,19 +100,6 @@ notify:
       selector:
         text:
 
-    target:
-      name: Target
-      description: The target person entity (person.*), device ID (device_*), or notify service (notify.*) to send to
-      example: "person.john_doe"
-      required: false
-      selector:
-        entity:
-          multiple: true
-          filter:
-            domain: 
-              - person
-              - notify
-
     data:
       name: Data
       description: Additional notification data (image, tag, group, etc.)
@@ -140,3 +107,4 @@ notify:
       required: false
       selector:
         object:
+
