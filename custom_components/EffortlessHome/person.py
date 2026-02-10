@@ -23,7 +23,7 @@ _LOGGER = logging.getLogger(__name__)
 GOOGLE_OAUTH_URL = "https://oauth2.googleapis.com/token"
 FIREBASE_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 
-FCM_URL = "https://fcm.googleapis.com/v1/projects/effortlesshome-oauth/messages:send"
+FCM_URL = "https://fcm.googleapis.com/v1/projects/oasira-oauth/messages:send"
 
 
 class eh_person(SensorEntity, RestoreEntity):
