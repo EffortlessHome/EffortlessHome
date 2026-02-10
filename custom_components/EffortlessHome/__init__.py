@@ -156,9 +156,54 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         """Send a notification message to all registered devices."""
         title = kwargs.get(ATTR_TITLE, "EffortlessHome")
         data = kwargs.get(ATTR_DATA, {})
-        notify_create(self.hass, message, title=title)
+        persistent_message = self._build_persistent_markdown(message, data)
+        notify_create(self.hass, persistent_message, title=title)
 
         await self._send_fcm_notification(message, title, data)
+
+    def _build_persistent_markdown(self, message: str, data: dict) -> str:
+        if not data:
+            return message
+
+        lines = [message] if message else []
+
+        links = []
+        images = []
+        extra_items = []
+
+        for key, value in data.items():
+            if value is None:
+                continue
+
+            key_str = str(key)
+            value_str = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+
+            if key_str in {"url", "link"}:
+                links.append(value_str)
+                continue
+
+            if key_str in {"image", "image_url", "photo", "photo_url"}:
+                images.append(value_str)
+                continue
+
+            extra_items.append((key_str, value_str))
+
+        if links:
+            lines.append("\n**Links**")
+            for link in links:
+                lines.append(f"- [Open link]({link})")
+
+        if images:
+            lines.append("\n**Images**")
+            for image in images:
+                lines.append(f"![Image]({image})")
+
+        if extra_items:
+            lines.append("\n**Data**")
+            for key_str, value_str in extra_items:
+                lines.append(f"- **{key_str}**: {value_str}")
+
+        return "\n".join(lines)
 
     async def _send_fcm_notification(self, message: str, title: str, data: dict) -> None:
         tokens = self.hass.data.get(DOMAIN, {}).get("notification_tokens", [])
@@ -181,6 +226,10 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         if data:
             payload_data = {str(k): str(v) for k, v in data.items()}
 
+        image_url = None
+        if data:
+            image_url = data.get("image") or data.get("image_url") or data.get("photo_url") or data.get("photo")
+
         for token in tokens:
             payload = {
                 "message": {
@@ -190,6 +239,15 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             }
             if payload_data:
                 payload["message"]["data"] = payload_data
+
+            if image_url:
+                payload["message"]["notification"]["image"] = image_url
+                payload["message"]["android"] = {
+                    "notification": {"image": image_url}
+                }
+                payload["message"]["apns"] = {
+                    "fcm_options": {"image": image_url}
+                }
 
             try:
                 async with session.post(fcm_url, headers=headers, json=payload) as resp:
@@ -298,6 +356,7 @@ async def async_setup_notification_platform(hass: HomeAssistant):
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up integration from a config entry."""
     hass.data.setdefault(DOMAIN, {})   
+    hass.data[DOMAIN]["entry_id"] = entry.entry_id
 
     token_store = storage.Store(hass, PUSH_TOKEN_STORAGE_VERSION, PUSH_TOKEN_STORAGE_KEY)
     hass.data[DOMAIN]["token_store"] = token_store
@@ -1023,6 +1082,28 @@ async def handle_effortlesshome_location_update(hass, webhook_id, request):
 
     device_id_new = device_id.lower().replace('@', '_').replace('.', '_').replace('-', '_').replace('{', '').replace('}', '')
     entity_id = f"device_tracker.{device_id_new}"
+
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    entry_id = domain_data.get("entry_id")
+    device_registry = dr.async_get(hass)
+    device_entry = device_registry.async_get_or_create(
+        config_entry_id=entry_id,
+        identifiers={(DOMAIN, device_id_new)},
+        name=device_name or device_id_new,
+        manufacturer=NAME,
+        model="Mobile Device",
+    )
+
+    entity_registry = er.async_get(hass)
+    entity_entry = entity_registry.async_get_or_create(
+        domain="device_tracker",
+        platform=DOMAIN,
+        unique_id=f"{DOMAIN}_tracker_{device_id_new}",
+        suggested_object_id=device_id_new,
+        device_id=device_entry.id,
+        original_name=device_name or device_id_new,
+    )
+    entity_id = entity_entry.entity_id
 
     _LOGGER.info("[EffortlessHome] 📍 Creating/updating device tracker: %s", entity_id)
 
