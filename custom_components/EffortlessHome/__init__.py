@@ -166,10 +166,13 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             _LOGGER.warning("No registered notification tokens")
             return
 
-        access_token = await self._get_firebase_access_token()
-        if not access_token:
+        access_token, project_id = await self._get_firebase_access_token()
+        if not access_token or not project_id:
             _LOGGER.error("Unable to get Firebase access token")
             return
+
+        fcm_url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
+        _LOGGER.info("[EffortlessHome] Using FCM project: %s", project_id)
 
         session = async_get_clientsession(self.hass)
         headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
@@ -189,19 +192,19 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                 payload["message"]["data"] = payload_data
 
             try:
-                async with session.post(FCM_URL, headers=headers, json=payload) as resp:
+                async with session.post(fcm_url, headers=headers, json=payload) as resp:
                     if resp.status != 200:
                         text = await resp.text()
                         _LOGGER.error("FCM push failed: %s", text)
             except Exception as exc:
                 _LOGGER.error("FCM push error: %s", exc)
 
-    async def _get_firebase_access_token(self) -> str | None:
+    async def _get_firebase_access_token(self) -> tuple[str | None, str | None]:
         try:
             id_token = self.hass.data.get(DOMAIN, {}).get("id_token")
             if not id_token:
                 _LOGGER.error("Missing id_token for Firebase access")
-                return None
+                return None, None
 
             async with OasiraAPIClient(id_token=id_token) as client:
                 firebase_config = await client.get_firebase_config()
@@ -209,11 +212,15 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             google_firebase_raw = firebase_config.get("Google_Firebase") if firebase_config else None
             if not google_firebase_raw:
                 _LOGGER.error("Missing Google_Firebase config from Oasira")
-                return None
+                return None, None
 
             service_account_info = json.loads(google_firebase_raw)
             private_key = service_account_info["private_key"]
             client_email = service_account_info["client_email"]
+            project_id = service_account_info.get("project_id")
+            if not project_id:
+                _LOGGER.error("Missing project_id in Firebase service account")
+                return None, None
 
             now = int(time.time())
             payload = {
@@ -238,15 +245,15 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                 result = await resp.json()
                 if "access_token" not in result:
                     _LOGGER.error("Firebase OAuth error: %s", result)
-                    return None
+                    return None, None
 
-                return result["access_token"]
+                return result["access_token"], project_id
         except OasiraAPIError as exc:
             _LOGGER.error("Failed to fetch Firebase config: %s", exc)
-            return None
+            return None, None
         except Exception as exc:
             _LOGGER.exception("Failed to refresh Firebase access token: %s", exc)
-            return None
+            return None, None
 
 
 async def async_setup_notification_platform(hass: HomeAssistant):
@@ -914,11 +921,21 @@ async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
 
     domain_data = hass.data.setdefault(DOMAIN, {})
     tokens = domain_data.setdefault("notification_tokens", [])
+    _LOGGER.info(
+        "[EffortlessHome] Current token count: %s",
+        len(tokens),
+    )
     if token not in tokens:
         tokens.append(token)
         token_store = domain_data.get("token_store")
         if token_store is not None:
             await token_store.async_save(tokens)
+        _LOGGER.info(
+            "[EffortlessHome] Token added. New token count: %s",
+            len(tokens),
+        )
+    else:
+        _LOGGER.info("[EffortlessHome] Token already registered")
 
     _LOGGER.info("[EffortlessHome] ✅ Push token registered successfully for %s", device_name)
     return web.json_response({"status": "success", "message": "Token registered"})
