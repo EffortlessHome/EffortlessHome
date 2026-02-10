@@ -65,11 +65,12 @@ async def setup_mobile_app_config(
                 service_account_str = firebase_config["Google_Firebase"]
                 service_account = json.loads(service_account_str)
                 
-                _LOGGER.info(
+                _LOGGER.debug(
                     "Received Firebase service account credentials. "
-                    "Note: mobile_app integration requires FCM legacy credentials (sender_id/server_key), "
-                    "but received service account JSON. "
-                    "Service account is used by notify.effortlesshome_firebase instead."
+                    "Mobile_app integration requires FCM legacy credentials (sender_id/server_key), "
+                    "but Oasira returned service account JSON (Google_Firebase). "
+                    "Service account is used by notify.effortlesshome_firebase instead. "
+                    "Mobile_app integration must be configured manually in configuration.yaml if desired."
                 )
                 
                 # Service account doesn't have the FCM legacy credentials we need
@@ -77,7 +78,7 @@ async def setup_mobile_app_config(
                 return {}
                 
             except json.JSONDecodeError as e:
-                _LOGGER.error("Failed to parse Google_Firebase JSON: %s", e)
+                _LOGGER.debug("Failed to parse Google_Firebase JSON: %s", e)
                 return {}
         
         # Extract required fields for mobile_app integration
@@ -275,7 +276,13 @@ async def setup_mobile_app_integration(
     mobile_app_config = await setup_mobile_app_config(hass, oasira_client)
     
     if not mobile_app_config:
-        _LOGGER.error("Failed to retrieve mobile_app config from Oasira")
+        _LOGGER.info(
+            "Mobile_app integration cannot be auto-configured. "
+            "Oasira is returning service account credentials (Google_Firebase) "
+            "instead of legacy FCM credentials (sender_id/server_key). "
+            "This is optional and does not affect EffortlessHome notifications. "
+            "Mobile_app integration requires manual setup in configuration.yaml if needed."
+        )
         return False
     
     # Step 2: Register config with mobile_app
