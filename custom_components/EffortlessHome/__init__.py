@@ -229,6 +229,7 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         image_url = None
         if data:
             image_url = data.get("image") or data.get("image_url") or data.get("photo_url") or data.get("photo")
+            image_url = self._resolve_image_url(image_url)
 
         for token in tokens:
             payload = {
@@ -256,6 +257,25 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                         _LOGGER.error("FCM push failed: %s", text)
             except Exception as exc:
                 _LOGGER.error("FCM push error: %s", exc)
+
+    def _resolve_image_url(self, image_url: str | None) -> str | None:
+        if not image_url:
+            return None
+
+        if image_url.startswith("http://") or image_url.startswith("https://"):
+            return image_url
+
+        base_url = self.hass.config.external_url or self.hass.config.internal_url
+        if not base_url:
+            _LOGGER.warning(
+                "[EffortlessHome] Image URL has no scheme and no base URL is configured"
+            )
+            return image_url
+
+        if image_url.startswith("/"):
+            return f"{base_url}{image_url}"
+
+        return f"{base_url}/{image_url}"
 
     async def _get_firebase_access_token(self) -> tuple[str | None, str | None]:
         try:
@@ -410,6 +430,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 _LOGGER.warning("Could not setup mobile app integration: %s", mobile_exc, exc_info=True)
 
             hass.data[DOMAIN] = {
+                "entry_id": entry.entry_id,
+                "token_store": hass.data[DOMAIN]["token_store"],
+                "notification_tokens": hass.data[DOMAIN]["notification_tokens"],
                 "fullname": parsed_data["fullname"],
                 "phonenumber": parsed_data["phonenumber"],
                 "emailaddress": parsed_data["emailaddress"],
@@ -438,7 +461,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "instructions_json": parsed_data["instructions_json"],
                 "plan": parsed_data["name"],
                 "plan_features": plan_features,
-                "notification_tokens": hass.data[DOMAIN]["notification_tokens"],
             }
         except OasiraAPIError as e:
             _LOGGER.error("Failed to fetch customer/system data: %s", e)
