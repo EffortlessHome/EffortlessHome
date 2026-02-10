@@ -49,6 +49,7 @@ from homeassistant.helpers import (
     entity_registry,
     entity_registry as er,
 )
+from homeassistant.helpers import storage
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceRegistry
 from homeassistant.helpers.service import async_register_admin_service
@@ -124,6 +125,8 @@ _LOGGER = logging.getLogger(__name__)
 GOOGLE_OAUTH_URL = "https://oauth2.googleapis.com/token"
 FIREBASE_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 FCM_URL = "https://fcm.googleapis.com/v1/projects/effortlesshome-oauth/messages:send"
+PUSH_TOKEN_STORAGE_KEY = "effortlesshome_push_tokens"
+PUSH_TOKEN_STORAGE_VERSION = 1
 
 class HASSComponent:
     """Hasscomponent."""
@@ -158,9 +161,9 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         await self._send_fcm_notification(message, title, data)
 
     async def _send_fcm_notification(self, message: str, title: str, data: dict) -> None:
-        devices = self.hass.data.get(DOMAIN, {}).get("notification_devices", {})
-        if not devices:
-            _LOGGER.warning("No registered notification devices")
+        tokens = self.hass.data.get(DOMAIN, {}).get("notification_tokens", [])
+        if not tokens:
+            _LOGGER.warning("No registered notification tokens")
             return
 
         access_token = await self._get_firebase_access_token()
@@ -175,12 +178,7 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         if data:
             payload_data = {str(k): str(v) for k, v in data.items()}
 
-        for device_name, device_info in devices.items():
-            token = device_info.get("token")
-            if not token:
-                _LOGGER.warning("Skipping device without token: %s", device_name)
-                continue
-
+        for token in tokens:
             payload = {
                 "message": {
                     "token": token,
@@ -194,11 +192,9 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                 async with session.post(FCM_URL, headers=headers, json=payload) as resp:
                     if resp.status != 200:
                         text = await resp.text()
-                        _LOGGER.error("FCM push failed for %s: %s", device_name, text)
-                    else:
-                        _LOGGER.info("FCM push sent to %s", device_name)
+                        _LOGGER.error("FCM push failed: %s", text)
             except Exception as exc:
-                _LOGGER.error("FCM push error for %s: %s", device_name, exc)
+                _LOGGER.error("FCM push error: %s", exc)
 
     async def _get_firebase_access_token(self) -> str | None:
         try:
@@ -296,6 +292,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up integration from a config entry."""
     hass.data.setdefault(DOMAIN, {})   
 
+    token_store = storage.Store(hass, PUSH_TOKEN_STORAGE_VERSION, PUSH_TOKEN_STORAGE_KEY)
+    hass.data[DOMAIN]["token_store"] = token_store
+    stored_tokens = await token_store.async_load() or []
+    hass.data[DOMAIN]["notification_tokens"] = list(dict.fromkeys(stored_tokens))
+
     system_id = entry.data["system_id"]
     customer_id = entry.data["customer_id"]
     id_token = entry.data.get("id_token")
@@ -371,7 +372,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "instructions_json": parsed_data["instructions_json"],
                 "plan": parsed_data["name"],
                 "plan_features": plan_features,
-                "notification_devices": {},
+                "notification_tokens": hass.data[DOMAIN]["notification_tokens"],
             }
         except OasiraAPIError as e:
             _LOGGER.error("Failed to fetch customer/system data: %s", e)
@@ -403,12 +404,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await async_setup_notification_platform(hass)
 
     # Unregister if already registered
-    push_token_webhook_ids = [
-        "effortlesshome_push_token",
-        "effortlesshome_update_push_token",
-    ]
-    for webhook_id in push_token_webhook_ids:
-        webhook.async_unregister(hass, webhook_id)
+    webhook.async_unregister(hass, "effortlesshome_push_token")
+    webhook.async_unregister(hass, "effortlesshome_remove_push_token")
     webhook.async_unregister(hass, "effortlesshome_location_update")
 
     security_webhook = SecurityAlarmWebhook(hass)
@@ -417,16 +414,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     broadcast_webhook = BroadcastWebhook(hass)
     await BroadcastWebhook.async_setup_webhook(broadcast_webhook)
 
-    for webhook_id in push_token_webhook_ids:
-        webhook.async_register(
-            hass,
-            DOMAIN,
-            "EffortlessHome Push Token",
-            webhook_id,
-            handle_effortlesshome_push_token_webhook,
-        )
+    webhook.async_register(
+        hass,
+        DOMAIN,
+        "EffortlessHome Push Token",
+        "effortlesshome_push_token",
+        handle_effortlesshome_push_token_webhook,
+    )
 
-        _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
+    _LOGGER.info("[EffortlessHome] Webhook registered: %s", "effortlesshome_push_token")
+
+    webhook.async_register(
+        hass,
+        DOMAIN,
+        "EffortlessHome Remove Push Token",
+        "effortlesshome_remove_push_token",
+        handle_effortlesshome_remove_push_token_webhook,
+    )
+
+    _LOGGER.info(
+        "[EffortlessHome] Webhook registered: %s",
+        "effortlesshome_remove_push_token",
+    )
 
     webhook_id = "effortlesshome_location_update"
 
@@ -586,12 +595,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Unregister the notify service
     hass.services.async_remove("effortlesshome", "notify")
 
-    push_token_webhook_ids = [
-        "effortlesshome_push_token",
-        "effortlesshome_update_push_token",
-    ]
-    for webhook_id in push_token_webhook_ids:
-        webhook.async_unregister(hass, webhook_id)
+    webhook.async_unregister(hass, "effortlesshome_push_token")
+    webhook.async_unregister(hass, "effortlesshome_remove_push_token")
     webhook.async_unregister(hass, "effortlesshome_location_update")
 
     return True
@@ -896,21 +901,63 @@ async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
     device_name = data.get("device_name")
     platform_name = data.get("platform")
 
-    _LOGGER.info("[EffortlessHome] 🔔 Parsed data - device_name: %s, platform: %s, token_length: %s", 
-                 device_name, platform_name, len(token) if token else 0)
+    _LOGGER.info(
+        "[EffortlessHome] 🔔 Parsed data - device_name: %s, platform: %s, token_length: %s",
+        device_name,
+        platform_name,
+        len(token) if token else 0,
+    )
 
-    if not token or not device_name:
-        _LOGGER.error("[EffortlessHome] ❌ Webhook called without required fields (token, device_name).")
-        return web.Response(status=400, text="Missing token or device_name")
+    if not token:
+        _LOGGER.error("[EffortlessHome] ❌ Webhook called without required field (token).")
+        return web.Response(status=400, text="Missing token")
 
-    devices = hass.data.setdefault(DOMAIN, {}).setdefault("notification_devices", {})
-    devices[device_name] = {
-        "token": token,
-        "platform": platform_name,
-    }
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    tokens = domain_data.setdefault("notification_tokens", [])
+    if token not in tokens:
+        tokens.append(token)
+        token_store = domain_data.get("token_store")
+        if token_store is not None:
+            await token_store.async_save(tokens)
 
     _LOGGER.info("[EffortlessHome] ✅ Push token registered successfully for %s", device_name)
     return web.json_response({"status": "success", "message": "Token registered"})
+
+
+async def handle_effortlesshome_remove_push_token_webhook(hass, webhook_id, request):
+    """Handle incoming EffortlessHome remove push token webhook."""
+
+    _LOGGER.info("[EffortlessHome] 🔔 Handling remove push token webhook")
+    _LOGGER.info("[EffortlessHome] Request headers: %s", dict(request.headers))
+
+    try:
+        data = await request.json()
+        _LOGGER.info(
+            "[EffortlessHome] 🔔 Remove token payload: %s",
+            {k: v if k != "token" else f"{v[:20]}..." for k, v in data.items()},
+        )
+    except Exception as e:
+        _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
+        return web.Response(status=400, text="Invalid JSON")
+
+    token = data.get("token")
+    if not token:
+        _LOGGER.error("[EffortlessHome] ❌ Webhook called without required field (token).")
+        return web.Response(status=400, text="Missing token")
+
+    domain_data = hass.data.setdefault(DOMAIN, {})
+    tokens = domain_data.setdefault("notification_tokens", [])
+
+    if token in tokens:
+        tokens.remove(token)
+        token_store = domain_data.get("token_store")
+        if token_store is not None:
+            await token_store.async_save(tokens)
+        _LOGGER.info("[EffortlessHome] ✅ Push token removed successfully")
+        return web.json_response({"status": "success", "message": "Token removed"})
+
+    _LOGGER.info("[EffortlessHome] Token not found - nothing to remove")
+    return web.json_response({"status": "success", "message": "Token not found"})
 
 
 #{
