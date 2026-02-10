@@ -12,7 +12,9 @@
     "assist_pipeline",
     "intent"
   ],
-  "codeowners": ["@effortlesshome"],
+  "codeowners": [
+    "@effortlesshome"
+  ],
   "config_flow": true,
   "dependencies": [
     "http",
@@ -42,5 +44,5 @@
     "aiohttp",
     "pyjwt"
   ],
-  "version": "1.7.0"
+  "version": "1.7.4"
 }
