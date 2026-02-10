@@ -188,20 +188,20 @@ class EffortlessHomeNotificationService(BaseNotificationService):
 
             extra_items.append((key_str, value_str))
 
+        compact_parts = []
         if links:
-            lines.append("\n**Links**")
-            for link in links:
-                lines.append(f"- [Open link]({link})")
+            compact_parts.append("Links: " + " | ".join(f"[Link {i + 1}]({link})" for i, link in enumerate(links)))
 
         if images:
-            lines.append("\n**Images**")
-            for image in images:
-                lines.append(f"![Image]({image})")
+            compact_parts.append("Images: " + " ".join(f"![Image]({image})" for image in images))
 
         if extra_items:
-            lines.append("\n**Data**")
-            for key_str, value_str in extra_items:
-                lines.append(f"- **{key_str}**: {value_str}")
+            compact_parts.append(
+                "Data: " + "; ".join(f"`{key_str}`={value_str}" for key_str, value_str in extra_items)
+            )
+
+        if compact_parts:
+            lines.append("\n" + " | ".join(compact_parts))
 
         return "\n".join(lines)
 
