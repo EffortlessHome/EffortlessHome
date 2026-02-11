@@ -43,13 +43,6 @@ blueprint:
       description: 'Default: "Battery Check Notification"'
       default: Battery Check Notification
 
-    data_clickaction_url:
-      name: URL to Navigate (Optional)
-      description:
-        The URL to navigate to when clicking on the notification. (default
-        = /lovelace)
-      default: /lovelace
-
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)
@@ -66,7 +59,6 @@ variables:
   battery_level: !input battery_level
   exclude_sensors: !input exclude_sensors
 
-  clickActionURL: !input data_clickaction_url
 
   additional_actions: !input additional_actions
 
@@ -135,11 +127,6 @@ action:
     data:
       title: !input notification_title
       message: "Battery and Sensor Check Result. Sensors: {{ sensors_names }} and Unavailable: {{ unavailable_sensors_names}}"
-      data:
-        clickAction: !input data_clickaction_url
-        ttl: 0
-        priority: high
-        url: !input data_clickaction_url
 
   - choose: []
     default: !input additional_actions

@@ -33,13 +33,6 @@ blueprint:
       description: "Humidity Sensor Activated Message"
       default: "Humidity Sensor Activated."
 
-    data_clickaction_url:
-      name: URL to Navigate (Optional)
-      description:
-        The URL to navigate to when clicking on the notification. (default
-        = /lovelace)
-      default: /lovelace
-
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)
@@ -54,8 +47,6 @@ trigger:
   - platform: numeric_state
     entity_id: !input humidsensor
     below: !input low_sensor
-variables:
-  clickActionURL: !input data_clickaction_url
 
 action:
   - service: notify.effortlesshome
@@ -63,9 +54,6 @@ action:
       title: Humidity Sensor Activated
       message: !input notification_message
       data:
-        clickAction: !input data_clickaction_url
-        ttl: 0
-        priority: high
         url: !input data_clickaction_url
   - service: effortlesshome.create_alert_service
     data:

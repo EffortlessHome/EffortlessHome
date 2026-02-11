@@ -102,7 +102,6 @@ action:
         data:
           title: "Door or Window Left Open"
           message: !input notification_message
-          data:
-            priority: high
+
   - choose: []
     default: !input additional_actions

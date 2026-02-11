@@ -61,8 +61,7 @@ action:
   - service: notify.effortlesshome
     data:
       message: 'Offline device(s) detected: {{ offline_devices }}'
-      data:
-        priority: high
+
   - service: effortlesshome.create_alert_service
     data:
       alert_type: Offline device(s)

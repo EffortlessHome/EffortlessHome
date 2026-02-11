@@ -54,13 +54,6 @@ blueprint:
       description: "Default: Appliance Stopped"
       default: Appliance Stopped
 
-    data_clickaction_url:
-      name: URL to Navigate (Optional)
-      description:
-        The URL to navigate to when clicking on the notification. (default
-        = /lovelace)
-      default: /lovelace
-
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)
@@ -80,19 +73,12 @@ condition:
   - condition: state
     entity_id: !input appliance_switch
     state: "on"
-variables:
-  clickActionURL: !input data_clickaction_url
 
 action:
   - service: notify.effortlesshome
     data:
       title: !input notification_message
       message: !input notification_message
-      data:
-        clickAction: !input data_clickaction_url
-        ttl: 0
-        priority: high
-        url: !input data_clickaction_url
 
   - action: switch.turn_off
     metadata: {}

@@ -38,13 +38,6 @@ blueprint:
         "{{ sensor_name }} detected movement! Snapshot from {{ camera_name
         }} at {{ time }}."
 
-    data_clickaction_url:
-      name: URL to Navigate (Optional)
-      description:
-        The URL to navigate to when clicking on the notification. (default
-        = /lovelace)
-      default: /lovelace
-
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)
@@ -77,8 +70,6 @@ variables:
     "{{ snapshot_create_file_path | replace('/media','/media/local')
     }}"
 
-  clickActionURL: !input data_clickaction_url
-
   additional_actions: !input additional_actions
 
 action:
@@ -97,16 +88,9 @@ action:
       message: !input notification_message
       data:
         image: "{{ snapshot_access_file_path }}"
-        clickAction: !input data_clickaction_url
-        ttl: 0
-        priority: high
         attachment:
           url: "{{ snapshot_access_file_path }}"
           content_type: JPEG
-        url: !input data_clickaction_url
-        actions:
-          - action: SNOOZEMOTIONNOTIFY
-            title: Snooze Motion Notifications
 
   - choose: []
     default: !input additional_actions
