@@ -53,8 +53,7 @@ action:
     data:
       title: Humidity Sensor Activated
       message: !input notification_message
-      data:
-        url: !input data_clickaction_url
+
   - service: effortlesshome.create_alert_service
     data:
       alert_type: Humidity Sensor Activated
