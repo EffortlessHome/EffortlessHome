@@ -431,6 +431,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
             hass.data[DOMAIN] = {
                 "entry_id": entry.entry_id,
+                "config_entry": entry,
                 "token_store": hass.data[DOMAIN]["token_store"],
                 "notification_tokens": hass.data[DOMAIN]["notification_tokens"],
                 "fullname": parsed_data["fullname"],
@@ -445,6 +446,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "systemid": system_id,
                 "customerid": customer_id,
                 "id_token": id_token,
+                "refresh_token": entry.data.get("refresh_token"),
                 "influx_url": parsed_data["influx_url"],
                 "influx_token": parsed_data["influx_token"],
                 "influx_bucket": parsed_data["influx_bucket"],
@@ -587,44 +589,45 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         
         while True:
             try:
-                # Wait 50 minutes before refreshing (tokens expire in 60 minutes)
-                await asyncio.sleep(50 * 60)
-                
                 _LOGGER.info("Refreshing Firebase ID token...")
-                
+
                 async with OasiraAPIClient() as api_client:
                     result = await api_client.firebase_refresh_token(refresh_token)
-                    
-                    new_id_token = result.get("idToken")
-                    new_refresh_token = result.get("refreshToken")
-                    
-                    if new_id_token:
-                        # Update the token in hass.data
-                        hass.data[DOMAIN]["id_token"] = new_id_token
-                        
-                        # Update the config entry data
-                        hass.config_entries.async_update_entry(
-                            entry,
-                            data={
-                                **entry.data,
-                                "id_token": new_id_token,
-                                "refresh_token": new_refresh_token or refresh_token,
-                            }
-                        )
-                        
-                        # Update the refresh token for next iteration
-                        if new_refresh_token:
-                            refresh_token = new_refresh_token
-                        
-                        _LOGGER.info("✅ Firebase ID token refreshed successfully")
-                    else:
-                        _LOGGER.error("Failed to refresh Firebase token - no idToken in response")
-                        
+
+                new_id_token = result.get("idToken")
+                new_refresh_token = result.get("refreshToken")
+
+                if new_id_token:
+                    # Update the token in hass.data
+                    hass.data[DOMAIN]["id_token"] = new_id_token
+                    hass.data[DOMAIN]["refresh_token"] = new_refresh_token or refresh_token
+
+                    # Update the config entry data
+                    hass.config_entries.async_update_entry(
+                        entry,
+                        data={
+                            **entry.data,
+                            "id_token": new_id_token,
+                            "refresh_token": new_refresh_token or refresh_token,
+                        }
+                    )
+
+                    # Update the refresh token for next iteration
+                    if new_refresh_token:
+                        refresh_token = new_refresh_token
+
+                    _LOGGER.info("✅ Firebase ID token refreshed successfully")
+                else:
+                    _LOGGER.error("Failed to refresh Firebase token - no idToken in response")
+
             except OasiraAPIError as e:
                 _LOGGER.error("Failed to refresh Firebase token: %s", e)
                 # Continue trying even if refresh fails
             except Exception as e:
                 _LOGGER.exception("Unexpected error refreshing Firebase token: %s", e)
+            finally:
+                # Wait 50 minutes before refreshing (tokens expire in 60 minutes)
+                await asyncio.sleep(50 * 60)
     
     # Start the refresh task
     hass.async_create_task(refresh_firebase_token())

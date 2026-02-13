@@ -92,10 +92,13 @@ action:
   - service: alarm_control_panel.alarm_arm_away
     target:
       entity_id: !input securityalarm
+  - alias: Set presence simulation flag
+    variables:
+      presence_simulation_enabled: !input presence_simulation_enabled
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ !input presence_simulation_enabled }}"
+            value_template: "{{ presence_simulation_enabled }}"
         sequence:
           - service: switch.turn_on
             target:

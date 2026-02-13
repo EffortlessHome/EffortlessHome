@@ -45,6 +45,61 @@ class PendingAlarmComponent:
         return cls._pendingalarm
 
 
+def _is_firebase_token_error(err: Exception) -> bool:
+    msg = str(err).lower()
+    status = getattr(err, "status", None) or getattr(err, "status_code", None)
+
+    if status == 401:
+        return True
+
+    if "firebase token" in msg and ("expired" in msg or "invalid" in msg):
+        return True
+
+    return "status 401" in msg and "token" in msg
+
+
+async def _refresh_id_token(hass: HomeAssistant) -> bool:
+    refresh_token = hass.data.get(DOMAIN, {}).get("refresh_token")
+    if not refresh_token:
+        _LOGGER.warning("No refresh token available - cannot refresh Firebase token")
+        return False
+
+    try:
+        async with OasiraAPIClient() as api_client:
+            result = await api_client.firebase_refresh_token(refresh_token)
+
+        new_id_token = result.get("idToken")
+        new_refresh_token = result.get("refreshToken") or refresh_token
+
+        if not new_id_token:
+            _LOGGER.error("Failed to refresh Firebase token - no idToken in response")
+            return False
+
+        hass.data[DOMAIN]["id_token"] = new_id_token
+        hass.data[DOMAIN]["refresh_token"] = new_refresh_token
+
+        entry = hass.data[DOMAIN].get("config_entry")
+        if entry is not None:
+            hass.config_entries.async_update_entry(
+                entry,
+                data={
+                    **entry.data,
+                    "id_token": new_id_token,
+                    "refresh_token": new_refresh_token,
+                },
+            )
+
+        _LOGGER.info("✅ Firebase ID token refreshed successfully")
+        return True
+
+    except OasiraAPIError as e:
+        _LOGGER.error("Failed to refresh Firebase token: %s", e)
+        return False
+    except Exception as e:
+        _LOGGER.exception("Unexpected error refreshing Firebase token: %s", e)
+        return False
+
+
 async def async_creatependingalarm(
     hass: HomeAssistant, alarmtype: str, open_sensors: dict | None = None
 ) -> None:
@@ -172,6 +227,29 @@ async def async_createsecurityalarm(pendingAlarm):
 
             PendingAlarmComponent.set_pendingalarm(None)
         except OasiraAPIError as e:
+            if _is_firebase_token_error(e) and await _refresh_id_token(hass):
+                id_token = hass.data[DOMAIN].get("id_token")
+                async with OasiraAPIClient(
+                    system_id=systemid,
+                    id_token=id_token,
+                ) as retry_client:
+                    try:
+                        result = await retry_client.create_security_alarm(alarm_data)
+                        _LOGGER.info("API response content: %s", result)
+
+                        hass.data[DOMAIN]["alarm_id"] = result.get("AlarmID")
+                        hass.data[DOMAIN]["alarmcreatemessage"] = result.get("Message")
+                        hass.data[DOMAIN]["alarmownerid"] = result.get("OwnerID")
+                        hass.data[DOMAIN]["alarmstatus"] = result.get("Status")
+                        hass.data[DOMAIN]["alarmlasteventtype"] = "alarm.status.created"
+                        hass.data[DOMAIN]["alarmtype"] = ALARM_TYPE_SECURITY
+
+                        PendingAlarmComponent.set_pendingalarm(None)
+                        return
+                    except OasiraAPIError as retry_error:
+                        _LOGGER.error("Failed to create security alarm after refresh: %s", retry_error)
+                        return
+
             _LOGGER.error("Failed to create security alarm: %s", e)
 
 async def async_createmonitoringalarm(pendingAlarm):
@@ -232,6 +310,29 @@ async def async_createmonitoringalarm(pendingAlarm):
 
             PendingAlarmComponent.set_pendingalarm(None)
         except OasiraAPIError as e:
+            if _is_firebase_token_error(e) and await _refresh_id_token(hass):
+                id_token = hass.data[DOMAIN].get("id_token")
+                async with OasiraAPIClient(
+                    system_id=systemid,
+                    id_token=id_token,
+                ) as retry_client:
+                    try:
+                        result = await retry_client.create_monitoring_alarm(alarm_data)
+                        _LOGGER.debug("API response content: %s", result)
+
+                        hass.data[DOMAIN]["alarm_id"] = result["AlarmID"]
+                        hass.data[DOMAIN]["alarmcreatemessage"] = result["Message"]
+                        hass.data[DOMAIN]["alarmownerid"] = result["OwnerID"]
+                        hass.data[DOMAIN]["alarmstatus"] = result["Status"]
+                        hass.data[DOMAIN]["alarmlasteventtype"] = "alarm.status.created"
+                        hass.data[DOMAIN]["alarmtype"] = ALARM_TYPE_MONITORING
+
+                        PendingAlarmComponent.set_pendingalarm(None)
+                        return
+                    except OasiraAPIError as retry_error:
+                        _LOGGER.error("Failed to create monitoring alarm after refresh: %s", retry_error)
+                        return
+
             _LOGGER.error("Failed to create monitoring alarm: %s", e)
 
 async def async_createmedicalalertalarm(pendingAlarm):
@@ -290,6 +391,29 @@ async def async_createmedicalalertalarm(pendingAlarm):
 
             PendingAlarmComponent.set_pendingalarm(None)
         except OasiraAPIError as e:
+            if _is_firebase_token_error(e) and await _refresh_id_token(hass):
+                id_token = hass.data[DOMAIN].get("id_token")
+                async with OasiraAPIClient(
+                    system_id=systemid,
+                    id_token=id_token,
+                ) as retry_client:
+                    try:
+                        result = await retry_client.create_medical_alarm(alarm_data)
+                        _LOGGER.debug("API response content: %s", result)
+
+                        hass.data[DOMAIN]["alarm_id"] = result["AlarmID"]
+                        hass.data[DOMAIN]["alarmcreatemessage"] = result["Message"]
+                        hass.data[DOMAIN]["alarmownerid"] = result["OwnerID"]
+                        hass.data[DOMAIN]["alarmstatus"] = result["Status"]
+                        hass.data[DOMAIN]["alarmlasteventtype"] = "alarm.status.created"
+                        hass.data[DOMAIN]["alarmtype"] = ALARM_TYPE_MED_ALERT
+
+                        PendingAlarmComponent.set_pendingalarm(None)
+                        return
+                    except OasiraAPIError as retry_error:
+                        _LOGGER.error("Failed to create medical alarm after refresh: %s", retry_error)
+                        return
+
             _LOGGER.error("Failed to create medical alarm: %s", e)
 
 async def async_cancelalarm(hass: HomeAssistant):
