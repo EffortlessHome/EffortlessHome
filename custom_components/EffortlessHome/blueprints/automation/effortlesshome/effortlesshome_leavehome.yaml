@@ -42,7 +42,7 @@ blueprint:
           filter:
             - domain:
                 - lock
-          multiple: false
+          multiple: true
     off_target:
       name: Lights and switches to turn off
       description: Turn off these lights and switches (optional)
@@ -61,6 +61,13 @@ blueprint:
         entity:
           domain:
             - binary_sensor
+
+    presence_simulation_enabled:
+      name: Use presence simulation
+      description: Turn on presence simulation when leaving home.
+      default: false
+      selector:
+        boolean: {}
 
     notification_message:
       name: Notification message
@@ -85,6 +92,18 @@ action:
   - service: alarm_control_panel.alarm_arm_away
     target:
       entity_id: !input securityalarm
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ !input presence_simulation_enabled }}"
+        sequence:
+          - service: switch.turn_on
+            target:
+              entity_id: switch.presence_simulation
+    default:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.presence_simulation
   - service: homeassistant.turn_off
     data: {}
     target: !input off_target

@@ -227,7 +227,6 @@ class PresenceSimulationSwitch(SwitchEntity, RestoreEntity):
         """Turn on switch."""
         self._is_on = True
         self.schedule_update_ha_state()
-        self.replay_lights()
 
     def turn_off(self, **kwargs):
         """Turn off switch."""
@@ -241,47 +240,4 @@ class PresenceSimulationSwitch(SwitchEntity, RestoreEntity):
         if (last_state := await self.async_get_last_state()) is not None:
             self._is_on = last_state.state == "on"
 
-    def replay_lights(self):
-        """Replay the light states from the prior day with correct timing."""
-        now = datetime.now()
-        yesterday = now - timedelta(days=1)
-
-        # Fetch historical state changes for all entities
-        dic = get_significant_states(
-            hass=self.hass,
-            start_time=yesterday,
-            entity_ids=self.hass.states.async_entity_ids("light"),
-            include_start_time_state=True,
-            significant_changes_only=False,
-        )
-
-        for entity_id, states in dic.items():
-            if not entity_id.startswith("light."):
-                continue
-
-            for state in states:
-                if state.state not in (STATE_ON, STATE_OFF):
-                    continue
-
-                # Calculate the delay from 'yesterday' to when the state change occurred
-                timestamp = as_local(state.last_changed)
-                delay = (timestamp - yesterday).total_seconds()
-
-                # Avoid negative delays (in case of clock skew or bad data)
-                if delay < 0:
-                    continue
-
-                # Define the coroutine to change the light state
-                async def change_light(entity_id=entity_id, new_state=state.state):
-                    await self.hass.services.async_call(
-                        "light",
-                        "turn_on" if new_state == STATE_ON else "turn_off",
-                        {"entity_id": entity_id},
-                    )
-
-                # Schedule the state change with proper delay
-                self.hass.loop.call_later(
-                    delay,
-                    lambda coro=change_light(): self.hass.async_create_task(coro)
-                )
-                
+    

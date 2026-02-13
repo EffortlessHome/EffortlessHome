@@ -31,9 +31,14 @@ blueprint:
       name: Conditions
       description: List of conditions that must be true for this automation to run. Each condition is a Home Assistant condition block. By default, checks that binary_sensor.someone_home_sensor is on.
       default:
-        - condition: state
-          entity_id: binary_sensor.someone_home_sensor
-          state: "on"
+        - condition: or
+          conditions:
+            - condition: state
+              entity_id: binary_sensor.someone_home_sensor
+              state: "on"
+            - condition: state
+              entity_id: switch.presence_simulation
+              state: "on"
       selector:
         condition: {}
 trigger:

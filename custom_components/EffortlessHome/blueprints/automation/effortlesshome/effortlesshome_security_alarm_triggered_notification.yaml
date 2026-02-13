@@ -26,48 +26,26 @@ blueprint:
         action: {}
 trigger:
   - platform: state
-    entity_id: alarm_control_panel.effortlesshome_alarm_panel
+    entity_id: alarm_control_panel.effortlesshome
     to: "triggered"
 action:
-  - alias: Set up variables
-    variables:
-      action_confirm: "{{ 'CONFIRM_' ~ context.id }}"
-      action_dismiss: "{{ 'DISMISS_' ~ context.id }}"
   - service: notify.effortlesshome
     data:
       message: !input notification_message
       title: "Security Alarm Triggered"
-      data:
-        actions:
-          - action: "{{ action_confirm }}"
-            title: "Confirm Alarm"
-          - action: "{{ action_dismiss }}"
-            title: "Disarm Alarm"
   - alias: Awaiting response
     wait_for_trigger:
-      - platform: event
-        event_type: mobile_app_notification_action
-        event_data:
-          action: "{{ action_confirm }}"
-      - platform: event
-        event_type: mobile_app_notification_action
-        event_data:
-          action: "{{ action_dismiss }}"
+      - platform: state
+        entity_id: alarm_control_panel.effortlesshome
+        from: "pending"
+        to: "active"
     timeout:
       seconds: !input timeout_seconds
   - choose:
-      - conditions: "{{ wait.trigger.event.data.action == action_confirm }}"
+      - conditions: "{{ wait.trigger is not none }}"
         sequence:
           - action: effortlesshome.confirmpendingalarmservice
             data: {}
-
-      - conditions: "{{ wait.trigger.event.data.action == action_dismiss }}"
-        sequence:
-          - action: alarm_control_panel.alarm_disarm
-            metadata: {}
-            data: {}
-            target:
-              entity_id: alarm_control_panel.effortlesshome_alarm_panel
 
     default: # If timeout occurs
       - sequence:
