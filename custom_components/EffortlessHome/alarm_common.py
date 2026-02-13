@@ -58,6 +58,22 @@ def _is_firebase_token_error(err: Exception) -> bool:
     return "status 401" in msg and "token" in msg
 
 
+def _extract_error_json(err: Exception) -> dict | None:
+    message = str(err)
+    marker = ":"
+    if marker not in message:
+        return None
+
+    payload = message.split(marker, 1)[1].strip()
+    if not payload.startswith("{"):
+        return None
+
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+
+
 async def _refresh_id_token(hass: HomeAssistant) -> bool:
     refresh_token = hass.data.get(DOMAIN, {}).get("refresh_token")
     if not refresh_token:
@@ -464,8 +480,34 @@ async def async_cancelalarm(hass: HomeAssistant):
                     hass.data[DOMAIN]["alarmlasteventtype"] = alarmstatus
                     hass.data[DOMAIN]["alarmtype"] = ""
 
+                    await hass.services.async_call(
+                        DOMAIN,
+                        "getalarmstatusservice",
+                        {},
+                        blocking=False,
+                    )
+
                     return result
                 except OasiraAPIError as e:
+                    message = str(e).lower()
+                    if "status 201" in message:
+                        payload = _extract_error_json(e)
+                        if payload and payload.get("status") == "CANCELED":
+                            alarmstatus = payload.get("status")
+                            hass.data[DOMAIN]["alarm_id"] = ""
+                            hass.data[DOMAIN]["alarmcreatemessage"] = ""
+                            hass.data[DOMAIN]["alarmownerid"] = ""
+                            hass.data[DOMAIN]["alarmstatus"] = ""
+                            hass.data[DOMAIN]["alarmlasteventtype"] = alarmstatus
+                            hass.data[DOMAIN]["alarmtype"] = ""
+                            await hass.services.async_call(
+                                DOMAIN,
+                                "getalarmstatusservice",
+                                {},
+                                blocking=False,
+                            )
+                            return payload
+
                     _LOGGER.error("Failed to cancel alarm: %s", e)
                     return None
     return None
