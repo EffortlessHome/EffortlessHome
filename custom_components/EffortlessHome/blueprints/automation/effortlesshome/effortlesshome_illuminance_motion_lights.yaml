@@ -103,11 +103,11 @@ action:
           - service: light.turn_on
             target: !input light_target
 
-          - data:
-              scene_id: before_action_state
-              snapshot_entities:
-                - !input light_target
-            action: scene.create
+         # - data:
+         #     scene_id: before_action_state
+         #     snapshot_entities:
+         #       - !input light_target
+         #   action: scene.create
 
           - wait_for_trigger:
               - entity_id: !input motion_entity
@@ -116,16 +116,16 @@ action:
                 for: !input no_motion_wait
 
           #dim the light before turning it off to signal that it has not detected motion in quite a while
-          - service: light.turn_on
-            data:
-              brightness_pct: 20
-            target: !input light_target
+          #- service: light.turn_on
+          #  data:
+          #    brightness_pct: 20
+          #  target: !input light_target
 
-          - delay: "00:00:05"
+          #- delay: "00:00:05"
 
-          - target:
-              entity_id: scene.before_action_state
-            action: scene.turn_on
+          #- target:
+          #    entity_id: scene.before_action_state
+          #  action: scene.turn_on
 
           - service: homeassistant.turn_off
             target: !input light_target
