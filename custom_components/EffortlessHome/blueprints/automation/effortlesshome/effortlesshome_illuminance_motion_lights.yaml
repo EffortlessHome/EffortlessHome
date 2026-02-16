@@ -73,6 +73,7 @@ blueprint:
           state: "off"
       selector:
         condition: {}
+
     additional_actions:
       name: Additional Actions
       description: Add additional actions to execute (Optional)
@@ -101,28 +102,34 @@ action:
         sequence:
           - service: light.turn_on
             target: !input light_target
-          - choose:
-              - conditions:
-                  - condition: template
-                    value_template: "{{ wait_for_clear }}"
-                    alias: "Check if wait for motion to clear"
-                sequence:
-                  - wait_for_trigger:
-                      - platform: state
-                        entity_id: !input motion_entity
-                        to: "off"
-                    timeout:
-                      seconds: !input no_motion_wait
-                    continue_on_timeout: true
-                  - condition: template
-                    value_template: "{{ wait.trigger is not none }}"
-                  - delay:
-                      seconds: 5
-            default:
-              - delay:
-                  seconds: !input no_motion_wait
+
+          - data:
+              scene_id: before_action_state
+              snapshot_entities:
+                - !input light_target
+            action: scene.create
+
+          - wait_for_trigger:
+              - entity_id: !input motion_entity
+                to: "off"
+                trigger: state
+                for: !input no_motion_wait
+
+          #dim the light before turning it off to signal that it has not detected motion in quite a while
+          - service: light.turn_on
+            data:
+              brightness_pct: 20
+            target: !input light_target
+
+          - delay: "00:00:05"
+
+          - target:
+              entity_id: scene.before_action_state
+            action: scene.turn_on
+
           - service: homeassistant.turn_off
             target: !input light_target
+
           - choose: []
             default: !input additional_actions            
     default: []
