@@ -16,7 +16,19 @@ blueprint:
                 - sensor
                 - binary_sensor
           multiple: false
-   
+
+    trigger_off_minutes:
+      description: The amount of time in minutes to trigger the stopped running state
+      name: Trigger Time
+      default: 5
+      selector:
+        number:
+          min: 1.0
+          max: 99.0
+          unit_of_measurement: minutes
+          step: 1.0
+          mode: slider
+
     appliance_switch:
       name: Dedicated appliance switch
       description: Use one of the defined Appliance Switches to convert the appliance to smart.
@@ -42,8 +54,11 @@ blueprint:
 trigger:
   platform: state
   entity_id: !input sensor
-  from: "on"
   to: "off"
+  for:
+    hours: 0
+    minutes: !input trigger_off_minutes
+    seconds: 0
 
 condition:
   - condition: state
