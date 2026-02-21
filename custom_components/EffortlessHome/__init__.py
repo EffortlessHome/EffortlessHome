@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import time
 from typing import TYPE_CHECKING, List
+from urllib.parse import quote
 
 import aiohttp
 
@@ -188,7 +189,10 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                 if not value_str.startswith(("http://", "https://")):
                     ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
                     if ha_url:
-                        value_str = f"{ha_url}/{value_str.lstrip('/')}"
+                        # URL encode the path to handle special characters
+                        clean_path = value_str.lstrip('/')
+                        encoded_path = quote(clean_path, safe='/')
+                        value_str = f"{ha_url}/{encoded_path}"
                 images.append(value_str)
                 continue
 
@@ -277,9 +281,10 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         if image_url.startswith("/"):
             ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
             if ha_url:
-                # Remove leading slash and append to HA URL
+                # Remove leading slash and append to HA URL with URL encoding
                 clean_path = image_url.lstrip('/')
-                return f"{ha_url}/{clean_path}"
+                encoded_path = quote(clean_path, safe='/')
+                return f"{ha_url}/{encoded_path}"
             else:
                 _LOGGER.warning("[EffortlessHome] HA URL not found, cannot resolve local image path")
                 return None
@@ -287,7 +292,8 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         # Handle relative paths
         ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
         if ha_url:
-            return f"{ha_url}/{image_url}"
+            encoded_path = quote(image_url, safe='/')
+            return f"{ha_url}/{encoded_path}"
         else:
             _LOGGER.warning("[EffortlessHome] HA URL not found, cannot resolve relative image path")
             return None
