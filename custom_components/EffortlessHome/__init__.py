@@ -266,44 +266,23 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         if image_url.startswith("http://") or image_url.startswith("https://"):
             return image_url
 
-        # Handle local file paths
+        # Handle local file paths by appending HA URL
         if image_url.startswith("/"):
-            # Convert absolute local path to base64 encoded data URL
-            return self._convert_local_image_to_base64(image_url)
+            ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
+            if ha_url:
+                # Remove leading slash and append to HA URL
+                clean_path = image_url.lstrip('/')
+                return f"{ha_url}/{clean_path}"
+            else:
+                _LOGGER.warning("[EffortlessHome] HA URL not found, cannot resolve local image path")
+                return None
         
         # Handle relative paths
-        return self._convert_local_image_to_base64(f"/{image_url}")
-
-    def _convert_local_image_to_base64(self, local_path: str) -> str | None:
-        """Convert a local image file to base64 data URL."""
-        try:
-            # Get the full path to the image file
-            hass_config_dir = self.hass.config.config_dir
-            full_path = os.path.join(hass_config_dir, local_path.lstrip('/'))
-            
-            _LOGGER.info(f"[EffortlessHome] Converting local image to base64: {full_path}")
-            
-            # Check if file exists
-            if not os.path.exists(full_path):
-                _LOGGER.error(f"[EffortlessHome] Local image file not found: {full_path}")
-                return None
-            
-            # Get MIME type
-            mime_type, _ = mimetypes.guess_type(full_path)
-            if not mime_type:
-                mime_type = "image/jpeg"  # Default fallback
-            
-            # Read and encode the image
-            with open(full_path, "rb") as image_file:
-                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
-            
-            # Create data URL
-            data_url = f"data:{mime_type};base64,{encoded_string}"
-            _LOGGER.info(f"[EffortlessHome] Successfully converted image to base64 data URL (length: {len(data_url)})")
-            return data_url
-            
-        except Exception as e:
-            _LOGGER.error(f"[EffortlessHome] Error converting local image to base64: {e}")
+        ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
+        if ha_url:
+            return f"{ha_url}/{image_url}"
+        else:
+            _LOGGER.warning("[EffortlessHome] HA URL not found, cannot resolve relative image path")
             return None
 
     async def _get_firebase_access_token(self) -> tuple[str | None, str | None]:

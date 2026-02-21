@@ -64,10 +64,10 @@ variables:
   notification_title: !input notification_title
   notification_message: !input notification_message
 
-  snapshot_create_file_path: /media/snapshots/{{ camera_name }}/{{
-    now().strftime("%Y%m%d-%H%M%S") }}.jpg
-  snapshot_access_file_path:
-    "{{ snapshot_create_file_path | replace('/media','/media/local')
+  snapshot_create_file_path: /media/snapshots/{{ camera_name }}/{{ date }} {{ time }}.jpg
+  snapshot_access_file_path: /www/effortlesshome/snapshots/{{ camera_name }}/lastest.jpg
+  snapshot_access_file_path_local:
+    "{{ snapshot_access_file_path | replace('/www','/local')
     }}"
 
   additional_actions: !input additional_actions
@@ -78,6 +78,11 @@ action:
     data:
       filename: "{{ snapshot_create_file_path }}"
 
+  - service: camera.snapshot
+    entity_id: !input camera
+    data:
+      filename: "{{ snapshot_access_file_path }}"
+
   - condition: state
     entity_id: binary_sensor.motion_notification_sensor
     state: "on"
@@ -87,10 +92,7 @@ action:
       title: !input notification_title
       message: !input notification_message
       data:
-        image: "{{ snapshot_access_file_path }}"
-        attachment:
-          url: "{{ snapshot_access_file_path }}"
-          content_type: JPEG
+        image: "{{ snapshot_access_file_path_local }}"
 
   - choose: []
     default: !input additional_actions
