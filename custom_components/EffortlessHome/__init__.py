@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import mimetypes
@@ -265,17 +266,45 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         if image_url.startswith("http://") or image_url.startswith("https://"):
             return image_url
 
-        base_url = self.hass.config.external_url or self.hass.config.internal_url
-        if not base_url:
-            _LOGGER.warning(
-                "[EffortlessHome] Image URL has no scheme and no base URL is configured"
-            )
-            return image_url
-
+        # Handle local file paths
         if image_url.startswith("/"):
-            return f"{base_url}{image_url}"
+            # Convert absolute local path to base64 encoded data URL
+            return self._convert_local_image_to_base64(image_url)
+        
+        # Handle relative paths
+        return self._convert_local_image_to_base64(f"/{image_url}")
 
-        return f"{base_url}/{image_url}"
+    def _convert_local_image_to_base64(self, local_path: str) -> str | None:
+        """Convert a local image file to base64 data URL."""
+        try:
+            # Get the full path to the image file
+            hass_config_dir = self.hass.config.config_dir
+            full_path = os.path.join(hass_config_dir, local_path.lstrip('/'))
+            
+            _LOGGER.info(f"[EffortlessHome] Converting local image to base64: {full_path}")
+            
+            # Check if file exists
+            if not os.path.exists(full_path):
+                _LOGGER.error(f"[EffortlessHome] Local image file not found: {full_path}")
+                return None
+            
+            # Get MIME type
+            mime_type, _ = mimetypes.guess_type(full_path)
+            if not mime_type:
+                mime_type = "image/jpeg"  # Default fallback
+            
+            # Read and encode the image
+            with open(full_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            # Create data URL
+            data_url = f"data:{mime_type};base64,{encoded_string}"
+            _LOGGER.info(f"[EffortlessHome] Successfully converted image to base64 data URL (length: {len(data_url)})")
+            return data_url
+            
+        except Exception as e:
+            _LOGGER.error(f"[EffortlessHome] Error converting local image to base64: {e}")
+            return None
 
     async def _get_firebase_access_token(self) -> tuple[str | None, str | None]:
         try:

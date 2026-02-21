@@ -698,15 +698,15 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
         try:
             home = 0
             _LOGGER.debug("[SomeoneHomeSensor][update] Starting update. Initial home count: 0")
-            for entity_id in self.hass.states.entity_ids("device_tracker"):
+            for entity_id in self.hass.states.entity_ids("person"):
                 try:
                     state = self.hass.states.get(entity_id)
-                    _LOGGER.debug(f"[SomeoneHomeSensor][update] Checking device_tracker {entity_id}: state={getattr(state, 'state', None)}")
+                    _LOGGER.debug(f"[SomeoneHomeSensor][update] Checking person {entity_id}: state={getattr(state, 'state', None)}")
                     if state and state.state == "home":
                         home += 1
                         _LOGGER.debug(f"[SomeoneHomeSensor][update] {entity_id} is home. Incremented home count: {home}")
                 except Exception as e:
-                    _LOGGER.error(f"[SomeoneHomeSensor][update] Error checking device_tracker {entity_id}: {e}")
+                    _LOGGER.error(f"[SomeoneHomeSensor][update] Error checking person {entity_id}: {e}")
 
             entity_id = "group.security_motion_sensors_group"
             try:
@@ -775,31 +775,31 @@ class MotionNotifcationSensor(BinarySensorEntity, RestoreEntity):
 
         try:
             home = 0
-            for entity_id in self.hass.states.entity_ids("device_tracker"):
+            for entity_id in self.hass.states.entity_ids("person"):
                 try:
                     state = self.hass.states.get(entity_id)
-                    _LOGGER.debug(f"[SomeoneHomeSensor] Checking device_tracker {entity_id}: state={getattr(state, 'state', None)}")
+                    _LOGGER.debug(f"[MotionNotifcationSensor] Checking person {entity_id}: state={getattr(state, 'state', None)}")
                     if state and state.state == "home":
                         home += 1
                 except Exception as e:
-                    _LOGGER.error(f"[SomeoneHomeSensor] Error checking device_tracker {entity_id}: {e}")
+                    _LOGGER.error(f"[MotionNotifcationSensor] Error checking person {entity_id}: {e}")
 
             entity_id = "group.security_motion_sensors_group"
             try:
                 motion_sensor_state = self.hass.states.get(entity_id)
                 motion_sensor_state_val = motion_sensor_state.state if motion_sensor_state is not None else "Unknown"
-                _LOGGER.debug(f"[SomeoneHomeSensor] Motion sensor group state: {motion_sensor_state_val}")
+                _LOGGER.debug(f"[MotionNotifcationSensor] Motion sensor group state: {motion_sensor_state_val}")
             except Exception as e:
-                _LOGGER.error(f"[SomeoneHomeSensor] Error getting motion sensor group state: {e}")
+                _LOGGER.error(f"[MotionNotifcationSensor] Error getting motion sensor group state: {e}")
                 motion_sensor_state_val = "Unknown"
 
             if (home > 0 or (isinstance(motion_sensor_state_val, str) and motion_sensor_state_val.lower() == "on")):
                 self._state = "on"
             else:
                 self._state = "off"
-            _LOGGER.debug(f"[SomeoneHomeSensor] Updated state: {self._state} (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
+            _LOGGER.debug(f"[MotionNotifcationSensor] Updated state: {self._state} (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
         except Exception as e:
-            _LOGGER.error(f"[SomeoneHomeSensor] Error in update: {e}")
+            _LOGGER.error(f"[MotionNotifcationSensor] Error in update: {e}")
         # Get the state of the entity
         state = self.hass.states.get(entity_id)
 
