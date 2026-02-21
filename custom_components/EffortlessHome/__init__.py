@@ -254,12 +254,35 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                 payload["message"]["data"] = payload_data
 
             if image_url:
+                # Enhanced image handling for better native notification support
                 payload["message"]["notification"]["image"] = image_url
                 payload["message"]["android"] = {
-                    "notification": {"image": image_url}
+                    "notification": {
+                        "image": image_url,
+                        "icon": "ic_stat_ic_notification",
+                        "color": "#007bff"
+                    }
                 }
                 payload["message"]["apns"] = {
-                    "fcm_options": {"image": image_url}
+                    "payload": {
+                        "aps": {
+                            "alert": {
+                                "title": title,
+                                "body": message
+                            },
+                            "mutable-content": 1
+                        }
+                    },
+                    "fcm_options": {
+                        "image": image_url
+                    }
+                }
+                # Add webpush for web notifications
+                payload["message"]["webpush"] = {
+                    "notification": {
+                        "image": image_url,
+                        "icon": "/local/effortlesshome/user.png"
+                    }
                 }
 
             try:
@@ -267,6 +290,8 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                     if resp.status != 200:
                         text = await resp.text()
                         _LOGGER.error("FCM push failed: %s", text)
+                    else:
+                        _LOGGER.info("FCM push successful for token: %s", token[:20] + "...")
             except Exception as exc:
                 _LOGGER.error("FCM push error: %s", exc)
 
