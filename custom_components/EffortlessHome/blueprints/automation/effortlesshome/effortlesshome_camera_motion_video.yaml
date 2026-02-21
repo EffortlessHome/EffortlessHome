@@ -92,7 +92,7 @@ action:
       entity_id: !input camera
 
   - condition: state
-    entity_id: binary_sensor.motion_notification_sensor
+    entity_id: switch.motion_notifications
     state: "on"
 
   - service: notify.effortlesshome

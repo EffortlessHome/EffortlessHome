@@ -36,7 +36,6 @@ async def async_setup_entry(
     async_add_entities([DoorGroup()])
     async_add_entities([WindowGroup()])
     async_add_entities([SecurityMotionGroup()])
-    async_add_entities([MotionNotifcationSensor()])
     async_add_entities([SmartApplianceSensor("smartappliance1")])
     async_add_entities([SmartApplianceSensor("smartappliance2")])
     async_add_entities([SmartApplianceSensor("smartappliance3")])
@@ -728,88 +727,6 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
         except Exception as e:
             _LOGGER.error(f"[SomeoneHomeSensor][update] Error in update: {e}")
 
-
-
-class MotionNotifcationSensor(BinarySensorEntity, RestoreEntity):
-    """Representation of a sensor."""
-
-    @property
-    def device_info(self):
-        """Return information about the device."""
-        return {
-            "identifiers": {(DOMAIN, NAME)},
-            "name": NAME,
-            "manufacturer": NAME,
-        }
-
-    def __init__(self) -> None:
-        """Initialize the sensor."""
-        self._state = "on"
-
-    @property
-    def name(self) -> str:
-        """Return the name of the sensor."""
-        return "Motion Notification Sensor"
-
-    @property
-    def unique_id(self) -> str:
-        """Return the unique ID of the sensor."""
-        return self.name
-
-    @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
-        return self._state
-
-    @property
-    def icon(self):
-        # Return the specified icon or a default one
-        return "mdi:motion-sensor"
-
-    def update(self) -> None:
-        """Fetch new state data for the sensor.
-
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        entity_id = "switch.motion_notifications"
-
-        try:
-            home = 0
-            for entity_id in self.hass.states.entity_ids("person"):
-                try:
-                    state = self.hass.states.get(entity_id)
-                    _LOGGER.debug(f"[MotionNotifcationSensor] Checking person {entity_id}: state={getattr(state, 'state', None)}")
-                    if state and state.state == "home":
-                        home += 1
-                except Exception as e:
-                    _LOGGER.error(f"[MotionNotifcationSensor] Error checking person {entity_id}: {e}")
-
-            entity_id = "group.security_motion_sensors_group"
-            try:
-                motion_sensor_state = self.hass.states.get(entity_id)
-                motion_sensor_state_val = motion_sensor_state.state if motion_sensor_state is not None else "Unknown"
-                _LOGGER.debug(f"[MotionNotifcationSensor] Motion sensor group state: {motion_sensor_state_val}")
-            except Exception as e:
-                _LOGGER.error(f"[MotionNotifcationSensor] Error getting motion sensor group state: {e}")
-                motion_sensor_state_val = "Unknown"
-
-            if (home > 0 or (isinstance(motion_sensor_state_val, str) and motion_sensor_state_val.lower() == "on")):
-                self._state = "on"
-            else:
-                self._state = "off"
-            _LOGGER.debug(f"[MotionNotifcationSensor] Updated state: {self._state} (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
-        except Exception as e:
-            _LOGGER.error(f"[MotionNotifcationSensor] Error in update: {e}")
-        # Get the state of the entity
-        state = self.hass.states.get(entity_id)
-
-        if state is not None:
-            # Get the state value (e.g., "on" or "off")
-            switch_state = state.state
-            _LOGGER.info(f"The state of {entity_id} is: {switch_state}")
-            self._state = switch_state
-        else:
-            self._state = "off"
 
 
 class SmartApplianceSensor(BinarySensorEntity, RestoreEntity):
