@@ -771,7 +771,7 @@ class MotionNotifcationSensor(BinarySensorEntity, RestoreEntity):
 
         This is the only method that should fetch new data for Home Assistant.
         """
-        entity_id = "switch.switch_motion_notifications"
+        entity_id = "switch.motion_notifications"
 
         try:
             home = 0
