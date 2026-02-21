@@ -67,7 +67,7 @@ variables:
   snapshot_create_file_path: /media/snapshots/{{ camera_name }}/{{ date }} {{ time }}.jpg
   snapshot_access_file_path: /config/www/effortlesshome/{{ camera_name }}.latest.jpg
   snapshot_access_file_path_local:
-    "{{ snapshot_access_file_path | replace('/www','/local')
+    "{{ snapshot_access_file_path | replace('/config/www','/local')
     }}"
 
   additional_actions: !input additional_actions
