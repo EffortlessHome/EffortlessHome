@@ -184,6 +184,11 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                 continue
 
             if key_str in {"image", "image_url", "photo", "photo_url"}:
+                # Always convert to full HTTP path if not already HTTP/HTTPS
+                if not value_str.startswith(("http://", "https://")):
+                    ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
+                    if ha_url:
+                        value_str = f"{ha_url}/{value_str.lstrip('/')}"
                 images.append(value_str)
                 continue
 
@@ -194,7 +199,9 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             compact_parts.append("Links: " + " | ".join(f"[Link {i + 1}]({link})" for i, link in enumerate(links)))
 
         if images:
-            compact_parts.append("Images: " + " ".join(f"![Image]({image})" for image in images))
+            # Always show images in persistent notifications
+            for i, image in enumerate(images):
+                lines.append(f"![Image {i + 1}]({image})")
 
         if extra_items:
             compact_parts.append(
