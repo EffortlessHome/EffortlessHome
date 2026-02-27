@@ -55,6 +55,7 @@ trigger:
 
 variables:
   delay_seconds: !input delay_seconds
+  player: !input media_player
 
 action:
   - delay:
@@ -74,7 +75,7 @@ action:
       - conditions:
           - condition: template
             value_template: >
-              {{ states(!input media_player) in ['paused','idle','off'] }}
+              {{ states(player) in ['paused','idle','off'] }}
         sequence:
           - service: scene.turn_on
             target:

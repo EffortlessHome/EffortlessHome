@@ -74,6 +74,7 @@ from .area_manager import AreaManager
 from .auto_area import AutoArea
 
 from oasira import OasiraAPIClient, OasiraAPIError
+from .auth_helper import safe_api_call
 
 from .const import (
     DOMAIN,

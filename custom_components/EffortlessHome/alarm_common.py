@@ -46,16 +46,33 @@ class PendingAlarmComponent:
 
 
 def _is_firebase_token_error(err: Exception) -> bool:
+    """Check if the error is related to Firebase token expiration or invalidation."""
     msg = str(err).lower()
     status = getattr(err, "status", None) or getattr(err, "status_code", None)
 
+    # Check for HTTP 401 status
     if status == 401:
         return True
 
+    # Check for explicit Firebase token errors
     if "firebase token" in msg and ("expired" in msg or "invalid" in msg):
         return True
 
-    return "status 401" in msg and "token" in msg
+    # Check for generic 401 with token mention
+    if "status 401" in msg and "token" in msg:
+        return True
+
+    # Check for common Firebase auth error patterns
+    if any(pattern in msg for pattern in [
+        "unauthorized",
+        "invalid authentication",
+        "token has expired",
+        "invalid token",
+        "authentication failed"
+    ]):
+        return True
+
+    return False
 
 
 def _extract_error_json(err: Exception) -> dict | None:
