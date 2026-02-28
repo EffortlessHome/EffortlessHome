@@ -186,15 +186,9 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                 continue
 
             if key_str in {"image", "image_url", "photo", "photo_url"}:
-                # Always convert to full HTTP path if not already HTTP/HTTPS
-                if not value_str.startswith(("http://", "https://")):
-                    ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
-                    if ha_url:
-                        # URL encode the path to handle special characters
-                        clean_path = value_str.lstrip('/')
-                        encoded_path = quote(clean_path, safe='/')
-                        value_str = f"{ha_url}/{encoded_path}"
-                images.append(value_str)
+                resolved = self._resolve_image_url(value_str)
+                if resolved:
+                    images.append(resolved)
                 continue
 
             extra_items.append((key_str, value_str))
@@ -304,25 +298,22 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             return image_url
 
         # Handle local file paths by appending HA URL
-        if image_url.startswith("/"):
-            ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
-            if ha_url:
-                # Remove leading slash and append to HA URL with URL encoding
-                clean_path = image_url.lstrip('/')
-                encoded_path = quote(clean_path, safe='/')
-                return f"{ha_url}/{encoded_path}"
-            else:
-                _LOGGER.warning("[EffortlessHome] HA URL not found, cannot resolve local image path")
-                return None
-        
-        # Handle relative paths
         ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
-        if ha_url:
-            encoded_path = quote(image_url, safe='/')
-            return f"{ha_url}/{encoded_path}"
-        else:
-            _LOGGER.warning("[EffortlessHome] HA URL not found, cannot resolve relative image path")
+        if not ha_url:
+            _LOGGER.warning("[EffortlessHome] HA URL not found, cannot resolve local image path")
             return None
+
+        clean_path = image_url.lstrip('/')
+        encoded_path = quote(clean_path, safe='/')
+
+        # Add cache buster to ensure latest image is always fetched
+        cache_buster = f"v={int(time.time())}"
+        if "?" in encoded_path:
+            resolved_url = f"{ha_url}/{encoded_path}&{cache_buster}"
+        else:
+            resolved_url = f"{ha_url}/{encoded_path}?{cache_buster}"
+
+        return resolved_url
 
     async def _get_firebase_access_token(self) -> tuple[str | None, str | None]:
         try:
