@@ -108,6 +108,9 @@ action:
           - condition: template
             value_template: >
               {{ states(player) in ['paused','idle','off'] }}
+          - condition: numeric_state
+            entity_id: !input lux_entity
+            below: !input lux_level                
         sequence:
           - service: scene.turn_on
             target:
