@@ -113,5 +113,5 @@ action:
             target:
               entity_id: !input stop_scene
 
-      - choose: []
-        default: !input additional_actions                       
+  - choose: []
+    default: !input additional_actions

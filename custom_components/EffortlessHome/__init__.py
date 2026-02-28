@@ -186,7 +186,7 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                 continue
 
             if key_str in {"image", "image_url", "photo", "photo_url"}:
-                resolved = self._resolve_image_url(value_str)
+                resolved = self._resolve_image_url(value_str, full_url=False)
                 if resolved:
                     images.append(resolved)
                 continue
@@ -229,14 +229,20 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         session = async_get_clientsession(self.hass)
         headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
 
+        image_url = None
         payload_data = None
         if data:
-            payload_data = {str(k): str(v) for k, v in data.items()}
-
-        image_url = None
-        if data:
-            image_url = data.get("image") or data.get("image_url") or data.get("photo_url") or data.get("photo")
-            image_url = self._resolve_image_url(image_url)
+            payload_data = {}
+            for k, v in data.items():
+                key_str = str(k)
+                value_str = str(v)
+                if key_str in {"image", "image_url", "photo", "photo_url"}:
+                    resolved = self._resolve_image_url(value_str, full_url=True)
+                    if resolved:
+                        value_str = resolved
+                        if not image_url:
+                            image_url = resolved
+                payload_data[key_str] = value_str
 
         for token in tokens:
             payload = {
@@ -290,30 +296,37 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             except Exception as exc:
                 _LOGGER.error("FCM push error: %s", exc)
 
-    def _resolve_image_url(self, image_url: str | None) -> str | None:
+    def _resolve_image_url(self, image_url: str | None, full_url: bool = True) -> str | None:
         if not image_url:
             return None
 
-        if image_url.startswith("http://") or image_url.startswith("https://"):
-            return image_url
-
-        # Handle local file paths by appending HA URL
-        ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
-        if not ha_url:
-            _LOGGER.warning("[EffortlessHome] HA URL not found, cannot resolve local image path")
-            return None
-
-        clean_path = image_url.lstrip('/')
-        encoded_path = quote(clean_path, safe='/')
-
         # Add cache buster to ensure latest image is always fetched
         cache_buster = f"v={int(time.time())}"
-        if "?" in encoded_path:
-            resolved_url = f"{ha_url}/{encoded_path}&{cache_buster}"
-        else:
-            resolved_url = f"{ha_url}/{encoded_path}?{cache_buster}"
 
-        return resolved_url
+        if image_url.startswith(("http://", "https://")):
+            separator = "&" if "?" in image_url else "?"
+            return f"{image_url}{separator}{cache_buster}"
+
+        # Handle local file paths
+        clean_path = image_url.lstrip('/')
+        
+        # Handle existing query strings in local paths
+        if "?" in clean_path:
+            base_path, query = clean_path.split("?", 1)
+            encoded_path = f"{quote(base_path, safe='/')}?{query}"
+            path_with_buster = f"{encoded_path}&{cache_buster}"
+        else:
+            encoded_path = quote(clean_path, safe='/')
+            path_with_buster = f"{encoded_path}?{cache_buster}"
+
+        if full_url:
+            ha_url = self.hass.data.get(DOMAIN, {}).get("ha_url", "")
+            if ha_url:
+                # Ensure no double slashes when joining
+                return f"{ha_url.rstrip('/')}/{path_with_buster}"
+        
+        # Return as absolute path for local use (e.g. persistent notifications)
+        return f"/{path_with_buster}"
 
     async def _get_firebase_access_token(self) -> tuple[str | None, str | None]:
         try:
