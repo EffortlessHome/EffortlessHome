@@ -246,10 +246,9 @@ class DisableMotionLightingSwitch(SwitchEntity, RestoreEntity):
 
     _attr_should_poll = False
 
-    def __init__(self, hass: HomeAssistant) -> None:
+    def __init__(self) -> None:
         """Initialize switch."""
         self._is_on: bool = False
-        self.hass = hass
         self.name = "Disable Motion Lighting"
         self.entity_id = "switch.motion_lighting_disable"
 
