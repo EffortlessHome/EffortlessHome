@@ -1183,12 +1183,73 @@ async def handle_effortlesshome_location_update(hass, webhook_id, request):
 
     _LOGGER.info("[EffortlessHome] 📍 Creating/updating device tracker: %s", entity_id)
 
-    # Update or create entity with dynamic state determination
-    # The state will be determined by the geofencing logic in the person entity
-    # when it's linked to this device tracker
+    # Update or create entity with immediate geofencing state determination
+    # Calculate the state based on location coordinates right away
+    state = "unknown"
+    
+    try:
+        # Try to get home coordinates for immediate state calculation
+        home_coords = None
+        system_data = hass.data.get(DOMAIN, {})
+        address_json = system_data.get("address_json")
+        
+        if address_json:
+            if isinstance(address_json, str):
+                address_data = json.loads(address_json)
+            else:
+                address_data = address_json
+            
+            home_lat = address_data.get("latitude")
+            home_lon = address_data.get("longitude")
+            
+            if home_lat is not None and home_lon is not None:
+                home_coords = (float(home_lat), float(home_lon))
+        
+        # Fallback to HA config coordinates
+        if not home_coords:
+            try:
+                home_lat = hass.config.latitude
+                home_lon = hass.config.longitude
+                if home_lat is not None and home_lon is not None:
+                    home_coords = (float(home_lat), float(home_lon))
+            except:
+                pass
+        
+        # Calculate distance and determine state
+        if home_coords:
+            home_lat, home_lon = home_coords
+            
+            # Earth's radius in meters
+            R = 6371000
+            
+            # Convert degrees to radians
+            lat1_rad = math.radians(home_lat)
+            lon1_rad = math.radians(home_lon)
+            lat2_rad = math.radians(lat)
+            lon2_rad = math.radians(lon)
+            
+            # Haversine formula
+            dlat = lat2_rad - lat1_rad
+            dlon = lon2_rad - lon1_rad
+            
+            a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+            
+            distance = R * c
+            radius = 100.0  # 100 meter radius
+            
+            if distance <= radius:
+                state = "home"
+            else:
+                state = "not_home"
+                
+    except Exception as e:
+        _LOGGER.debug("[EffortlessHome] Could not calculate geofence state: %s", e)
+        state = "unknown"
+
     hass.states.async_set(
         entity_id,
-        "unknown",  # Let the geofencing logic determine the actual state
+        state,
         {
             "latitude": lat,
             "longitude": lon,
