@@ -5,8 +5,8 @@ blueprint:
   author: EffortlessHome
   input:
     trigger:
-      name: Arrival Trigger
-      description: The sensor that indicates someone has arrived home
+      name: Departure Trigger
+      description: The sensor that indicates everyone has left home
       default: binary_sensor.someone_home_sensor
       selector:
         entity:

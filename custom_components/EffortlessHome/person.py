@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 from typing import Optional, List, Dict, Any
 import aiohttp
 import time
@@ -12,9 +13,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import async_get as async_get_dev_reg
 from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.event import async_track_state_change_event
 
 from oasira import OasiraAPIClient, OasiraAPIError
-from .const import DOMAIN, NAME
+from .const import DOMAIN, NAME, ATTR_LATITUDE, ATTR_LONGITUDE
 from .notificationdevice import effortlesshomenotificationdevice
 from .auth_helper import safe_api_call
 
@@ -151,11 +153,17 @@ class eh_person(SensorEntity, RestoreEntity):
         self._local_tracker_entity_id = entity_id
         _LOGGER.info("[eh_person] Linked local tracker for %s: %s", self._email, entity_id)
         self.async_write_ha_state()
+        
+        # Set up geofencing for the new tracker
+        await self.async_setup_geofencing()
 
     async def async_set_remote_tracker(self, entity_id: str):
         self._remote_tracker_entity_id = entity_id
         _LOGGER.info("[eh_person] Linked remote tracker for %s: %s", self._email, entity_id)
         self.async_write_ha_state()
+        
+        # Set up geofencing for the new tracker
+        await self.async_setup_geofencing()
 
     async def async_set_notification_devices(
         self, hass: HomeAssistant, token: str, device_name: str, platform_name: str
@@ -317,6 +325,9 @@ class eh_person(SensorEntity, RestoreEntity):
             self._email,
         )
 
+        # Set up geofencing after restoration
+        await self.async_setup_geofencing()
+
     async def async_get_firebase_access_token(self) -> str:
         """Generate a Firebase access token using service account JSON (async + HA safe)."""
 
@@ -377,3 +388,167 @@ class eh_person(SensorEntity, RestoreEntity):
 
     def __repr__(self):
         return f"<eh_person email={self._email!r} devices={len(self._notification_devices)}>"
+
+
+    # ---- Geofencing functionality ----
+    def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Calculate distance between two points using haversine formula."""
+        # Earth's radius in meters
+        R = 6371000
+        
+        # Convert degrees to radians
+        lat1_rad = math.radians(lat1)
+        lon1_rad = math.radians(lon1)
+        lat2_rad = math.radians(lat2)
+        lon2_rad = math.radians(lon2)
+        
+        # Haversine formula
+        dlat = lat2_rad - lat1_rad
+        dlon = lon2_rad - lon1_rad
+        
+        a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+        
+        distance = R * c
+        return distance
+
+    def _get_home_coordinates(self) -> Optional[tuple]:
+        """Get home coordinates from system configuration."""
+        try:
+            # Try to get home coordinates from system configuration
+            system_data = self.hass.data.get(DOMAIN, {})
+            address_json = system_data.get("address_json")
+            
+            if address_json:
+                # Parse address JSON to extract coordinates
+                # This assumes the address_json contains latitude and longitude
+                if isinstance(address_json, str):
+                    address_data = json.loads(address_json)
+                else:
+                    address_data = address_json
+                
+                lat = address_data.get("latitude")
+                lon = address_data.get("longitude")
+                
+                if lat is not None and lon is not None:
+                    return (float(lat), float(lon))
+                    
+        except Exception as e:
+            _LOGGER.debug("[eh_person] Could not get home coordinates from system config: %s", e)
+        
+        # Fallback: try to get coordinates from Home Assistant configuration
+        try:
+            home_lat = self.hass.config.latitude
+            home_lon = self.hass.config.longitude
+            
+            if home_lat is not None and home_lon is not None:
+                return (float(home_lat), float(home_lon))
+                
+        except Exception as e:
+            _LOGGER.debug("[eh_person] Could not get home coordinates from HA config: %s", e)
+        
+        return None
+
+    def _get_geofence_radius(self) -> float:
+        """Get geofence radius in meters from configuration."""
+        # Default radius: 100 meters
+        return 100.0
+
+    def _calculate_dynamic_state(self, tracker_state: str, entity_id: str) -> str:
+        """Calculate dynamic home/away state based on location."""
+        if tracker_state in ["home", "not_home"]:
+            # If the tracker already has a clear state, use it
+            return tracker_state
+        
+        # Get current location from the tracker entity
+        entity = self.hass.states.get(entity_id)
+        if not entity:
+            return "unknown"
+        
+        # Get latitude and longitude from entity attributes
+        lat = entity.attributes.get(ATTR_LATITUDE)
+        lon = entity.attributes.get(ATTR_LONGITUDE)
+        
+        if lat is None or lon is None:
+            return "unknown"
+        
+        # Get home coordinates
+        home_coords = self._get_home_coordinates()
+        if not home_coords:
+            _LOGGER.warning("[eh_person] No home coordinates available for geofencing")
+            return "unknown"
+        
+        home_lat, home_lon = home_coords
+        
+        # Calculate distance
+        distance = self._calculate_distance(lat, lon, home_lat, home_lon)
+        radius = self._get_geofence_radius()
+        
+        # Determine state based on distance
+        if distance <= radius:
+            return "home"
+        else:
+            return "not_home"
+
+    async def _update_tracker_state(self, entity_id: str, new_state: str):
+        """Update tracker state and trigger state change if needed."""
+        if entity_id == self._local_tracker_entity_id:
+            # Update local tracker
+            if hasattr(self, '_local_tracker_state'):
+                old_state = self._local_tracker_state
+            else:
+                old_state = "unknown"
+            
+            self._local_tracker_state = new_state
+            
+            if old_state != new_state:
+                _LOGGER.info("[eh_person] Local tracker state changed for %s: %s -> %s", 
+                           self._email, old_state, new_state)
+                self.async_write_ha_state()
+        
+        elif entity_id == self._remote_tracker_entity_id:
+            # Update remote tracker
+            if hasattr(self, '_remote_tracker_state'):
+                old_state = self._remote_tracker_state
+            else:
+                old_state = "unknown"
+            
+            self._remote_tracker_state = new_state
+            
+            if old_state != new_state:
+                _LOGGER.info("[eh_person] Remote tracker state changed for %s: %s -> %s", 
+                           self._email, old_state, new_state)
+                self.async_write_ha_state()
+
+    async def _handle_location_change(self, entity_id: str, old_state, new_state):
+        """Handle location changes from device trackers."""
+        if entity_id not in [self._local_tracker_entity_id, self._remote_tracker_entity_id]:
+            return
+        
+        # Calculate dynamic state based on new location
+        dynamic_state = self._calculate_dynamic_state(new_state.state if new_state else "unknown", entity_id)
+        
+        if dynamic_state != "unknown":
+            await self._update_tracker_state(entity_id, dynamic_state)
+
+    async def async_setup_geofencing(self):
+        """Set up geofencing for linked trackers."""
+        if not self._local_tracker_entity_id and not self._remote_tracker_entity_id:
+            return
+        
+        # Set up state change listeners for both trackers
+        if self._local_tracker_entity_id:
+            async_track_state_change_event(
+                self.hass,
+                self._local_tracker_entity_id,
+                self._handle_location_change
+            )
+            _LOGGER.info("[eh_person] Set up geofencing for local tracker: %s", self._local_tracker_entity_id)
+        
+        if self._remote_tracker_entity_id:
+            async_track_state_change_event(
+                self.hass,
+                self._remote_tracker_entity_id,
+                self._handle_location_change
+            )
+            _LOGGER.info("[eh_person] Set up geofencing for remote tracker: %s", self._remote_tracker_entity_id)
