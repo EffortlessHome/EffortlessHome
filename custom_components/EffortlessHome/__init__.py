@@ -1183,10 +1183,12 @@ async def handle_effortlesshome_location_update(hass, webhook_id, request):
 
     _LOGGER.info("[EffortlessHome] 📍 Creating/updating device tracker: %s", entity_id)
 
-    # Update or create entity
+    # Update or create entity with dynamic state determination
+    # The state will be determined by the geofencing logic in the person entity
+    # when it's linked to this device tracker
     hass.states.async_set(
         entity_id,
-        "home",  # You can change this dynamically later
+        "unknown",  # Let the geofencing logic determine the actual state
         {
             "latitude": lat,
             "longitude": lon,
