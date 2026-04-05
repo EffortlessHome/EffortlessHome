@@ -14,7 +14,7 @@
 - **🧠 38+ Automation Blueprints** - Pre-configured automations for security, safety, routines, and device management
 - **🌅 Intelligent Routines** - Automated goodmorning, goodnight, arrive home, and leave home sequences
 - **🔌 Smart Appliance Monitoring** - Convert any appliance into a smart device with cycle detection
-- **📊 Beautiful, Advanced Dashboard** - Modern web interface for complete home control
+- **📊 Beautiful, Advanced Dashboard** - Modern web interface for complete home control. With apps for running the dashboard on Apple iOS, TVOS, Android TV, Mobile, Windows, Mac with more coming soon.
 - **🎨 Custom Home Assistant Theme** - Polished UI designed specifically for EffortlessHome
 - **🛠️ Drag & Drop Management** - Easy area and label configuration without YAML
 
