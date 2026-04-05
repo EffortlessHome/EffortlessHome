@@ -23,7 +23,7 @@
 ## 🚀 Getting Started
 
 For installation instructions, setup guides, and documentation, visit:
-**https://www.effortlesshome.co/get-started/**
+**https://www.effortlesshome.co/getstarted/**
 
 ### Quick Install via HACS
 1. Open **HACS** in Home Assistant
