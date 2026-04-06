@@ -1,107 +1,199 @@
+<div align="center">
+
 # 🏠 EffortlessHome
 
-[![HACS Badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-1.2.7-blue.svg)](https://github.com/effortlesshome/effortlesshome)
+### The Missing Layer for Home Assistant
 
-**EffortlessHome** is a next-generation Home Assistant integration that transforms your house into a truly intelligent, automated ecosystem.
+**Professional security, intelligent automation, and beautiful dashboards — without the YAML.**
+
+[![Get Early Access](https://img.shields.io/badge/🚀_Get_Early_Access-Sign_Up_Now-F97316?style=for-the-badge)](https://www.effortlesshome.co/#cta)
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
+[![Version](https://img.shields.io/badge/version-1.2.7-blue.svg?style=flat-square)](https://github.com/effortlesshome/effortlesshome)
+[![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
+
+<br/>
+
+[Website](https://effortlesshome.co) · [Get Started](https://www.effortlesshome.co/getstarted/) · [Report Issue](https://github.com/effortlesshome/effortlesshome/issues)
+
+</div>
+
+---
+
+## 😤 The Problem
+
+You love Home Assistant. But let's be honest:
+
+- **Security systems** require dozens of YAML automations stitched together
+- **Remote access** means wrestling with DuckDNS, NGINX, ports, and certs
+- **Dashboards** look dated and need constant manual tweaking
+- **Automation blueprints** are scattered across forums with no consistency
+
+You didn't buy smart devices to spend weekends debugging configs.
+
+---
+
+## ✅ The Solution
+
+**EffortlessHome** is a native Home Assistant integration that gives you a production-grade smart home — installed in minutes, not weekends.
+
+| What You Get | Without EffortlessHome | With EffortlessHome |
+|---|---|---|
+| **Security System** | DIY YAML alarm + manual sensors | Multi-mode professional alarm, 24/7 monitoring available |
+| **Remote Access** | DuckDNS + NGINX + port forwarding | Secure, encrypted — zero config |
+| **Dashboard** | Lovelace cards, manual layout | Beautiful, app-like UI across all devices |
+| **Automations** | Copy-paste from forums | 38+ curated blueprints, one-click install |
+| **Device Setup** | Entity-by-entity configuration | Drag & drop area/label management |
 
 ---
 
 ## ✨ Key Features
 
-- **🛡️ Professional Security System** - Multi-mode alarm with intelligent triggering and smart sensor grouping. 24/7/365 Professional monitoring available.
-- **📍 Area-Aware Automation** - Dynamic presence detection, sleep modes, and privacy controls for every room
-- **🧠 38+ Automation Blueprints** - Pre-configured automations for security, safety, routines, and device management
-- **🌅 Intelligent Routines** - Automated goodmorning, goodnight, arrive home, and leave home sequences
-- **🔌 Smart Appliance Monitoring** - Convert any appliance into a smart device with cycle detection
-- **📊 Beautiful, Advanced Dashboard** - Modern web interface for complete home control. With apps for running the dashboard on Apple iOS, tvOS, Android TV, Mobile, Windows, Mac with more coming soon.
-- **🎨 Custom Home Assistant Theme** - Polished UI designed specifically for EffortlessHome
-- **🛠️ Drag & Drop Management** - Easy area and label configuration without YAML
+<table>
+<tr>
+<td width="50%">
+
+### 🛡️ Professional Security
+Multi-mode alarm with intelligent triggering, smart sensor grouping, and optional 24/7 professional monitoring.
+
+### 📍 Area-Aware Automation
+Dynamic presence detection, sleep modes, and privacy controls — per room, automatically.
+
+### 🧠 38+ Blueprints
+Pre-configured automations for security, safety, daily routines, and device management.
+
+### 🌅 Intelligent Routines
+Automated good morning, good night, arrive home, and leave home sequences.
+
+</td>
+<td width="50%">
+
+### 🔌 Smart Appliance Monitoring
+Convert any appliance into a smart device with cycle detection and notifications.
+
+### 📊 Beautiful Dashboard
+Modern web interface with native apps for iOS, Android, Apple TV, Android TV, Windows, and Mac.
+
+### 🎨 Custom HA Theme
+A polished, cohesive UI designed specifically for EffortlessHome.
+
+### 🛠️ Drag & Drop Config
+Easy area and label management — no YAML required.
+
+</td>
+</tr>
+</table>
 
 ---
 
-## 📱 Screenshots
+## 📱 See It In Action
+
+<div align="center">
 
 ### Web Dashboard
-<div align="center">
-  <img src="app_screenshots/web/1.png" alt="Web Dashboard 1" width="400"/>
-  <img src="app_screenshots/web/2.png" alt="Web Dashboard 2" width="400"/>
-  <img src="app_screenshots/web/3.png" alt="Web Dashboard 3" width="400"/>
-</div>
 
-### Mobile Apps
+<img src="app_screenshots/web/1.png" alt="Web Dashboard — Home" width="700"/>
 
-#### Android
-<div align="center">
-  <img src="app_screenshots/android/phone/1.png" alt="Android Phone 1" width="200"/>
-  <img src="app_screenshots/android/phone/2.png" alt="Android Phone 2" width="200"/>
-  <img src="app_screenshots/android/phone/3.png" alt="Android Phone 3" width="200"/>
-  <img src="app_screenshots/android/phone/4.png" alt="Android Phone 4" width="200"/>
-  <img src="app_screenshots/android/phone/5.png" alt="Android Phone 5" width="200"/>
-</div>
+<br/><br/>
 
-#### iOS
-<div align="center">
-  <img src="app_screenshots/apple/iphone/1.PNG" alt="iPhone 1" width="200"/>
-  <img src="app_screenshots/apple/iphone/2.PNG" alt="iPhone 2" width="200"/>
-  <img src="app_screenshots/apple/iphone/3.PNG" alt="iPhone 3" width="200"/>
-  <img src="app_screenshots/apple/iphone/4.PNG" alt="iPhone 4" width="200"/>
-  <img src="app_screenshots/apple/iphone/5.PNG" alt="iPhone 5" width="200"/>
-  <img src="app_screenshots/apple/iphone/6.PNG" alt="iPhone 6" width="200"/>
-  <img src="app_screenshots/apple/iphone/7.PNG" alt="iPhone 7" width="200"/>
-</div>
+<details>
+<summary><strong>📱 Mobile (Android & iOS)</strong></summary>
+<br/>
 
-#### Tablet
-<div align="center">
-  <img src="app_screenshots/android/tablet/1.png" alt="Android Tablet 1" width="300"/>
-  <img src="app_screenshots/android/tablet/2.png" alt="Android Tablet 2" width="300"/>
-  <img src="app_screenshots/android/tablet/3.png" alt="Android Tablet 3" width="300"/>
-  <img src="app_screenshots/android/tablet/4.png" alt="Android Tablet 4" width="300"/>
-  <img src="app_screenshots/android/tablet/5.png" alt="Android Tablet 5" width="300"/>
-  <br/>
-  <img src="app_screenshots/apple/ipad/1.PNG" alt="iPad 1" width="300"/>
-  <img src="app_screenshots/apple/ipad/2.PNG" alt="iPad 2" width="300"/>
-  <img src="app_screenshots/apple/ipad/3.PNG" alt="iPad 3" width="300"/>
-  <img src="app_screenshots/apple/ipad/4.PNG" alt="iPad 4" width="300"/>
-</div>
+<img src="app_screenshots/android/phone/1.png" alt="Android" width="180"/>
+<img src="app_screenshots/android/phone/2.png" alt="Android" width="180"/>
+<img src="app_screenshots/apple/iphone/1.PNG" alt="iPhone" width="180"/>
+<img src="app_screenshots/apple/iphone/2.PNG" alt="iPhone" width="180"/>
 
-#### TV & Desktop
-<div align="center">
-  <img src="app_screenshots/apple/appletv/1.png" alt="Apple TV" width="400"/>
-  <img src="app_screenshots/apple/mac/1.png" alt="Mac 1" width="400"/>
-  <img src="app_screenshots/apple/mac/2.png" alt="Mac 2" width="400"/>
-  <img src="app_screenshots/apple/mac/3.png" alt="Mac 3" width="400"/>
-  <img src="app_screenshots/windows/1.png" alt="Windows 1" width="400"/>
-  <img src="app_screenshots/windows/2.png" alt="Windows 2" width="400"/>
-  <img src="app_screenshots/windows/3.png" alt="Windows 3" width="400"/>
-  <img src="app_screenshots/windows/4.png" alt="Windows 4" width="400"/>
+</details>
+
+<details>
+<summary><strong>📟 Tablet (iPad & Android)</strong></summary>
+<br/>
+
+<img src="app_screenshots/android/tablet/1.png" alt="Android Tablet" width="300"/>
+<img src="app_screenshots/apple/ipad/1.PNG" alt="iPad" width="300"/>
+
+</details>
+
+<details>
+<summary><strong>🖥️ TV & Desktop (Apple TV, Mac, Windows)</strong></summary>
+<br/>
+
+<img src="app_screenshots/apple/appletv/1.png" alt="Apple TV" width="400"/>
+<img src="app_screenshots/apple/mac/1.png" alt="Mac" width="400"/>
+<img src="app_screenshots/windows/1.png" alt="Windows" width="400"/>
+
+</details>
+
 </div>
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start
 
-For installation instructions, setup guides, and documentation, visit:
-**https://www.effortlesshome.co/getstarted/**
+### Install via HACS (Recommended)
 
-### Quick Install via HACS
-1. Open **HACS** in Home Assistant
-2. Add this repo to the repositories
-3. Search for `EffortlessHome`
-4. Click **Download** and restart Home Assistant
-5. Add integration via **Settings > Devices & Services**
+```
+1. Open HACS in Home Assistant
+2. Add this repo as a custom repository
+3. Search for "EffortlessHome"
+4. Click Download → Restart Home Assistant
+5. Add integration via Settings > Devices & Services
+```
 
----
+📖 **Full setup guide:** [effortlesshome.co/getstarted](https://www.effortlesshome.co/getstarted/)
 
-## 🛠️ Requirements
-- Home Assistant 2024.1 or later
+### Requirements
+
+- Home Assistant **2024.1+**
 - `recorder` component enabled
-- Active internet connection for cloud features
+- Internet connection for cloud features
+
+---
+
+## 🏗️ Architecture: Local-First by Design
+
+```
+┌─────────────────────────────────────┐
+│           Your Home Network         │
+│                                     │
+│  ┌──────────────┐  ┌────────────┐  │
+│  │Home Assistant │──│EffortlessHome│ │
+│  │   (local)     │  │ (local)    │  │
+│  └──────┬───────┘  └─────┬──────┘  │
+│         │                │         │
+│    Local Automations    Local UI    │
+│    Local Security       Local Data  │
+└─────────┬────────────────┬─────────┘
+          │   Encrypted    │
+          └───── Cloud ────┘
+        (remote access only)
+```
+
+✅ All automations run **locally** — no cloud dependency
+✅ Your data **stays on your hardware**
+✅ Cloud used **only** for secure remote access & optional monitoring
 
 ---
 
 ## 🤝 Community & Support
-- **Documentation**: [effortlesshome.co/get-started](https://www.effortlesshome.co/get-started/)
-- **Report Issues**: [GitHub Issues](https://github.com/effortlesshome/effortlesshome/issues)
-- **Website**: [effortlesshome.co](https://effortlesshome.co)
 
+| Resource | Link |
+|---|---|
+| 📖 Documentation | [effortlesshome.co/get-started](https://www.effortlesshome.co/get-started/) |
+| 🐛 Report Issues | [GitHub Issues](https://github.com/effortlesshome/effortlesshome/issues) |
+| 🌐 Website | [effortlesshome.co](https://effortlesshome.co) |
+
+---
+
+<div align="center">
+
+### 🚀 Ready to make your home effortless?
+
+[![Get Early Access](https://img.shields.io/badge/🚀_Get_Early_Access-Sign_Up_Now-F97316?style=for-the-badge)](https://www.effortlesshome.co/#cta)
+
+**Join hundreds of Home Assistant users who stopped configuring and started living.**
+
+⭐ **Star this repo** to follow updates and show your support!
+
+</div>
