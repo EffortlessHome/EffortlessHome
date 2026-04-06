@@ -27,9 +27,13 @@
     "sensor",
     "conversation"
   ],
-  "documentation": "https://github.com/effortlesshome/",
+  "documentation": "https://github.com/EffortlessHome/EffortlessHome",
+  "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/effortlesshome/",
+  "issue_tracker": "https://github.com/EffortlessHome/EffortlessHome/issues",
+  "loggers": [
+    "effortlesshome"
+  ],
   "requirements": [
     "oasira>=0.2.12",
     "gcal-sync>=6.2.0",
@@ -44,5 +48,5 @@
     "aiohttp",
     "pyjwt"
   ],
-  "version": "1.7.5"
+  "version": "2.0.8"
 }

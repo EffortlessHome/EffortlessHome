@@ -1,3 +1,5 @@
+"""EffortlessHome integration."""
+
 from __future__ import annotations
 
 import asyncio
@@ -12,7 +14,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import time
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
 import aiohttp
@@ -29,36 +31,25 @@ from homeassistant.components.alarm_control_panel import DOMAIN as PLATFORM
 from homeassistant.components.notify import BaseNotificationService
 from homeassistant.config import get_default_config_dir
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers.discovery import async_load_platform
-from homeassistant.core import ServiceCall
+from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.components import webhook
 from homeassistant.helpers import entity_platform
 from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.components.persistent_notification import create as notify_create
-
-import homeassistant.core
-from homeassistant.core import (
-    HomeAssistant,
-    ServiceCall,
-    asyncio,  
-    callback,
-)
-from homeassistant.exceptions import (
-    HomeAssistantError,
-)
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import (
     config_validation as cv,
     device_registry as dr,
-    entity_registry,
     entity_registry as er,
+    storage,
+    label_registry as lr,
 )
-from homeassistant.helpers import storage
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.device_registry import DeviceRegistry
 from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.helpers import label_registry as lr
 
 import homeassistant.util.dt as dt_util
 from homeassistant.components.http import StaticPathConfig
@@ -98,15 +89,6 @@ from .virtualpowersensor import VirtualPowerSensor
 
 from .influx import process_trend_data
 from .binary_sensor import updateEntity
-
-from homeassistant.components import frontend
-from homeassistant.components.http import HomeAssistantView
-from homeassistant.helpers.event import async_track_time_change
-from homeassistant.components.notify import (
-    ATTR_DATA,
-    ATTR_TITLE,
-    BaseNotificationService,
-)
 
 try:
     # Older versions (pre-2025)
@@ -258,6 +240,9 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             if image_url:
                 # Enhanced image handling for better native notification support
                 payload["message"]["notification"]["image"] = image_url
+                payload["message"]["fcm_options"] = {
+                    "image": image_url
+                }
                 payload["message"]["android"] = {
                     "notification": {
                         "image": image_url,
@@ -273,10 +258,8 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                                 "body": message
                             },
                             "mutable-content": 1
-                        }
-                    },
-                    "fcm_options": {
-                        "image": image_url
+                        },
+                        "image_url": image_url
                     }
                 }
                 # Add webpush for web notifications
@@ -627,7 +610,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     # Listen for the 'homeassistant_started' event
     hass.bus.async_listen_once(
-        homeassistant.core.EVENT_HOMEASSISTANT_STARTED, after_home_assistant_started
+        EVENT_HOMEASSISTANT_STARTED, after_home_assistant_started
     )
 
     # Start Firebase token refresh task (refresh every 50 minutes, tokens expire in 60 minutes)
@@ -780,22 +763,22 @@ def register_services(hass: HomeAssistant) -> None:
     """Register effortlesshome services."""
 
     hass.services.async_register(
-        DOMAIN, "createcleanmotionfilesservice", cleanmotionfiles
+        DOMAIN, "clean_motion_files", clean_motion_files
     )
 
     # Register our service with Home Assistant.
-    hass.services.async_register(DOMAIN, "createeventservice", createevent)
-    hass.services.async_register(DOMAIN, "cancelalarmservice", cancelalarm)
-    hass.services.async_register(DOMAIN, "getalarmstatusservice", getalarmstatus)
+    hass.services.async_register(DOMAIN, "create_event", create_event)
+    hass.services.async_register(DOMAIN, "cancel_alarm", cancel_alarm)
+    hass.services.async_register(DOMAIN, "get_alarm_status", get_alarm_status)
     hass.services.async_register(
-        DOMAIN, "confirmpendingalarmservice", confirmpendingalarm
+        DOMAIN, "confirm_pending_alarm", confirm_pending_alarm
     )
 
     hass.services.async_register(DOMAIN, "update_entity", update_entity)
 
-    hass.services.async_register(DOMAIN, "create_alert_service", createalert)
+    hass.services.async_register(DOMAIN, "create_alert", create_alert)
 
-    hass.services.async_register(DOMAIN, "deploylatestconfig", handle_deploy_latest_config)
+    hass.services.async_register(DOMAIN, "deploy_latest_config", handle_deploy_latest_config)
     
     hass.services.async_register(DOMAIN, "get_firebase_config", handle_get_firebase_config)
 
@@ -823,13 +806,18 @@ async def loaddevicegroups(calldata) -> None:
     hass = HASSComponent.get_hass()
     await async_setup_devicegroup(hass)
 
-async def createevent(calldata) -> None:  
+async def create_event(call: ServiceCall) -> None:
     """Create event."""
-    _LOGGER.info("create event calldata =" + str(calldata.data))
+    _LOGGER.info("create event calldata =%s", call.data)
 
     hass = HASSComponent.get_hass()
 
-    devicestate = hass.states.get(calldata.data["entity_id"])
+    entity_id = call.data.get("entity_id")
+    if not entity_id:
+        _LOGGER.error("entity_id is required for create_event service")
+        return
+
+    devicestate = hass.states.get(entity_id)
     sensor_device_class = None
     sensor_device_name = None
 
@@ -840,17 +828,17 @@ async def createevent(calldata) -> None:
         sensor_device_class = devicestate.attributes["device_class"]
 
     if sensor_device_class is not None and sensor_device_name is not None:
-        alarmstate = hass.data[DOMAIN]["alarm_id"]
+        alarmstate = hass.data[DOMAIN].get("alarm_id")
 
-        if alarmstate is not None and alarmstate != "":
-            alarmstatus = hass.data[DOMAIN]["alarmstatus"]
+        if alarmstate and alarmstate != "":
+            alarmstatus = hass.data[DOMAIN].get("alarmstatus")
 
             if alarmstatus == "ACTIVE":
-                alarmid = hass.data[DOMAIN]["alarm_id"]
-                _LOGGER.info("alarm id =" + alarmid)
+                alarmid = alarmstate
+                _LOGGER.info("alarm id =%s", alarmid)
 
                 # Call the API to create event
-                systemid = hass.data[DOMAIN]["systemid"]
+                systemid = hass.data[DOMAIN].get("systemid")
                 id_token = hass.data[DOMAIN].get("id_token")
 
                 event_data = {
@@ -875,14 +863,25 @@ async def createevent(calldata) -> None:
         return None
     return None
 
-async def createalert(calldata) -> None:  
+
+# Keep old name for backward compatibility
+async def createevent(calldata) -> None:
+    """Create event (deprecated name)."""
+    await create_event(calldata)
+
+
+async def create_alert(call: ServiceCall) -> None:
     """Create alert."""
-    _LOGGER.info("create alert calldata =" + str(calldata.data))
+    _LOGGER.info("create alert calldata =%s", call.data)
 
     hass = HASSComponent.get_hass()
-    alert_type = calldata.data["alert_type"]
-    alert_description = calldata.data["alert_description"]
-    status = calldata.data["status"]
+    alert_type = call.data.get("alert_type")
+    alert_description = call.data.get("alert_description")
+    status = call.data.get("status")
+
+    if not alert_type or not alert_description or not status:
+        _LOGGER.error("alert_type, alert_description, and status are required for create_alert service")
+        return
 
     alert_data = {
         "alert_type": alert_type,
@@ -891,7 +890,7 @@ async def createalert(calldata) -> None:
     }
 
     # Call the API to create alert
-    systemid = hass.data[DOMAIN]["systemid"]  
+    systemid = hass.data[DOMAIN].get("systemid")
     id_token = hass.data[DOMAIN].get("id_token")
 
     _LOGGER.info("Calling alert API with payload: %s", alert_data)
@@ -908,45 +907,77 @@ async def createalert(calldata) -> None:
             _LOGGER.error("Failed to create alert: %s", e)
             return None
 
-async def cancelalarm(calldata):
+
+# Keep old name for backward compatibility
+async def createalert(calldata) -> None:
+    """Create alert (deprecated name)."""
+    await create_alert(calldata)
+
+
+async def cancel_alarm(call: ServiceCall) -> None:
     """Cancel alarm."""
     hass = HASSComponent.get_hass()
     return await async_cancelalarm(hass)
 
-async def getalarmstatus(calldata):
+
+# Keep old name for backward compatibility
+async def cancelalarm(calldata) -> None:
+    """Cancel alarm (deprecated name)."""
+    await cancel_alarm(calldata)
+
+
+async def get_alarm_status(call: ServiceCall) -> None:
     """Get alarm status."""
     hass = HASSComponent.get_hass()
-
     return await async_getalarmstatus(hass)
 
-async def confirmpendingalarm(calldata):
+
+# Keep old name for backward compatibility
+async def getalarmstatus(calldata) -> None:
+    """Get alarm status (deprecated name)."""
+    await get_alarm_status(calldata)
+
+
+async def confirm_pending_alarm(call: ServiceCall) -> None:
     """Confirm pending alarm."""
     hass = HASSComponent.get_hass()
-
     return await async_confirmpendingalarm(hass)
 
 
-async def cleanmotionfiles(calldata):
+# Keep old name for backward compatibility
+async def confirmpendingalarm(calldata) -> None:
+    """Confirm pending alarm (deprecated name)."""
+    await confirm_pending_alarm(calldata)
+
+
+async def clean_motion_files(call: ServiceCall) -> None:
     """Execute the shell command to delete old snapshots."""
+    age = call.data.get("age", 30)
+    
+    if not isinstance(age, int) or age < 1:
+        _LOGGER.warning("Invalid age value %s, using default 30 days", age)
+        age = 30
 
-    age = "30"
-
-    try:
-        age = calldata.data["age"]
-    except:
-        _LOGGER.error("Invalid Args To Clean Motion Service. Using Default 30 days")
-
-    command = "find /media/snapshots/* -mtime +" + str(age) + " -exec rm {} \\;"
+    command = f"find /media/snapshots/* -mtime +{age} -exec rm {{}} \\;"
 
     # Use subprocess to execute the shell command
-    process = subprocess.run(
-        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
-    )
+    try:
+        process = subprocess.run(
+            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+        )
 
-    if process.returncode == 0:
-        _LOGGER.info("Successfully deleted old snapshots.")
-    else:
-        _LOGGER.error(f"Error deleting snapshots: {process.stderr.decode()}")
+        if process.returncode == 0:
+            _LOGGER.info("Successfully deleted old snapshots older than %s days", age)
+        else:
+            _LOGGER.error("Error deleting snapshots: %s", process.stderr.decode())
+    except Exception as e:
+        _LOGGER.error("Failed to clean motion files: %s", e)
+
+
+# Keep old name for backward compatibility
+async def cleanmotionfiles(calldata):
+    """Execute the shell command to delete old snapshots (deprecated name)."""
+    await clean_motion_files(calldata)
 
 
 async def handle_get_firebase_config(call: ServiceCall) -> None:

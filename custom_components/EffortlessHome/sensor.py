@@ -101,8 +101,10 @@ async def async_setup_entry(
         for entry in device_data:
             for entity in all_entities:
                 if entity.entity_id == entry["entity_id"]:
-                    print(
-                        f"Adding virtual device: {entry['powersensorname']} with wattage: {entry['wattage']}"
+                    _LOGGER.debug(
+                        "Adding virtual device: %s with wattage: %s",
+                        entry["powersensorname"],
+                        entry["wattage"],
                     )
                     virtual_sensor = VirtualPowerSensor(
                         hass, entry["entity_id"], entry["wattage"]
@@ -117,7 +119,7 @@ async def async_setup_entry(
         for entry in device_data:
             name = entry["name"]
             wattage = entry["wattage"]
-            print(f"Adding virtual device: {name} with wattage: {wattage}")
+            _LOGGER.debug("Adding virtual device: %s with wattage: %s", name, wattage)
             powerentities.append(VirtualPowerSensorAlwaysOn(hass, name, wattage))
 
     async_add_entities(powerentities)

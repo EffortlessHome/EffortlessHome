@@ -1,110 +1,126 @@
-createcleanmotionfilesservice:
-  description: Service to clean motion files
+# Service to clean motion files older than specified age
+clean_motion_files:
+  name: Clean motion files
+  description: Clean motion files older than specified number of days
   fields:
     age:
-      name: age
-      description: The age of the files to remove. Default 30 days.
+      name: Age
+      description: The age of the files to remove in days. Default is 30 days.
       example: 30
+      selector:
+        number:
+          min: 1
+          max: 365
+          unit_of_measurement: days
 
+# Get Firebase configuration from Oasira for mobile_app setup
 get_firebase_config:
-  description: Get Firebase configuration from Oasira for mobile_app setup
-  fields: {}
+  name: Get Firebase config
+  description: Get Firebase configuration from Oasira for mobile app setup
 
+# Add a label to an entity
 add_label_to_entity:
-  description: add a label to an entity
+  name: Add label to entity
+  description: Add a label to an entity
   fields:
     entity_id:
       name: Entity
-      description: The the entity to update.
-      example: "entity.name"
+      description: The entity to update
+      example: "binary_sensor.front_door"
       required: true
       selector:
         entity:
 
     label:
-      name: The label to apply
-      description: The new label to assign to the entity.
+      name: Label
+      description: The label to apply to the entity
       example: "favorite"
       required: true
       selector:
         label:
 
-create_alert_service:
+# Create an alert record
+create_alert:
+  name: Create alert
   description: Create an alert record
   fields:
     alert_type:
-      name: alert_type
+      name: Alert type
       description: The type of alert
-      example: Humidity Alert
+      example: "Humidity Alert"
+      required: true
+      selector:
+        text:
     alert_description:
-      name: alert_description
+      name: Alert description
       description: Details about the alert
-      example: 'Details about the alert'
+      example: "High humidity detected in basement"
+      required: true
+      selector:
+        text:
+          multiline: true
     status:
-      name: status
+      name: Status
       description: The status of the alert
-      example: 'Active'
+      example: "Active"
+      required: true
+      selector:
+        select:
+          options:
+            - "Active"
+            - "Resolved"
+            - "Acknowledged"
 
+# Confirm pending EffortlessHome alarm
+confirm_pending_alarm:
+  name: Confirm pending alarm
+  description: Confirm a pending EffortlessHome alarm
 
-confirmpendingalarmservice:
-  description: Confirm pending EffortlessHome alarm
+# Cancel EffortlessHome alarm
+cancel_alarm:
+  name: Cancel alarm
+  description: Cancel an active EffortlessHome alarm
 
-cancelalarmservice:
-  description: Cancel EffortlessHome alarm
+# Get EffortlessHome alarm status
+get_alarm_status:
+  name: Get alarm status
+  description: Get the current EffortlessHome alarm status
 
-getalarmstatusservice:
-  description: Get EffortlessHome alarm status
-
+# Update entity area
 update_entity:
   name: Update entity
-  description: Updates a entity in the entity registry with an area
+  description: Update an entity in the entity registry with an area
   fields:
     entity_id:
       name: Entity
-      description: The the entity to update.
-      example: "entity.name"
+      description: The entity to update
+      example: "binary_sensor.front_door"
       required: true
       selector:
         entity:
 
     area_id:
       name: Area
-      description: The new area to assign to the entity.
+      description: The new area to assign to the entity
       example: "living_room"
       required: true
       selector:
         area:
 
+# Deploy latest EffortlessHome config
+deploy_latest_config:
+  name: Deploy latest config
+  description: Deploy latest EffortlessHome configuration files (themes, blueprints, cards)
 
-deploylatestconfig:
-  name: deploylatestconfig
-  description: Deploy latest EffortlessHome config
-notify:
-  name: Send EffortlessHome Notification
-  description: Send a notification through EffortlessHome to all registered devices
+# Create event service
+create_event:
+  name: Create event
+  description: Create an event for the active alarm
   fields:
-    message:
-      name: Message
-      description: The notification message body
-      example: "System alert from EffortlessHome"
+    entity_id:
+      name: Entity
+      description: The entity that triggered the event
+      example: "binary_sensor.front_door"
       required: true
       selector:
-        text:
-          multiline: true
-
-    title:
-      name: Title
-      description: The notification title
-      example: "EffortlessHome Alert"
-      required: false
-      selector:
-        text:
-
-    data:
-      name: Data
-      description: Additional notification data (image, tag, group, etc.)
-      example: '{"image": "/local/image.jpg", "tag": "alert_001"}'
-      required: false
-      selector:
-        object:
-
+        entity:

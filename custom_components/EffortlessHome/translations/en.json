@@ -49,5 +49,47 @@
         }
       }
     }
+  },
+  "services": {
+    "clean_motion_files": {
+      "name": "Clean motion files",
+      "description": "Clean motion files older than specified number of days"
+    },
+    "get_firebase_config": {
+      "name": "Get Firebase config",
+      "description": "Get Firebase configuration from Oasira for mobile app setup"
+    },
+    "add_label_to_entity": {
+      "name": "Add label to entity",
+      "description": "Add a label to an entity"
+    },
+    "create_alert": {
+      "name": "Create alert",
+      "description": "Create an alert record"
+    },
+    "confirm_pending_alarm": {
+      "name": "Confirm pending alarm",
+      "description": "Confirm a pending EffortlessHome alarm"
+    },
+    "cancel_alarm": {
+      "name": "Cancel alarm",
+      "description": "Cancel an active EffortlessHome alarm"
+    },
+    "get_alarm_status": {
+      "name": "Get alarm status",
+      "description": "Get the current EffortlessHome alarm status"
+    },
+    "update_entity": {
+      "name": "Update entity",
+      "description": "Update an entity in the entity registry with an area"
+    },
+    "deploy_latest_config": {
+      "name": "Deploy latest config",
+      "description": "Deploy latest EffortlessHome configuration files (themes, blueprints, cards)"
+    },
+    "create_event": {
+      "name": "Create event",
+      "description": "Create an event for the active alarm"
+    }
   }
 }
