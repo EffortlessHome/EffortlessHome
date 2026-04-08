@@ -616,19 +616,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     register_services(hass)
 
-    # Initialize the Motion Sensor Grouper
-    grouper = MotionSensorGrouper(hass)
-
-    # Create groups for motion sensors
-    await grouper.create_sensor_groups()
-    await grouper.create_security_sensor_group()
-
-    # Initialize the Siren Grouper
-    siren_grouper = SirenGrouper(hass)
-
-    # Create group for sirens
-    await siren_grouper.create_siren_group()
-
     # Removed deploy_latest_config(hass) from initialization. Now triggered by button entity.
     label_registry = lr.async_get(hass)
 
@@ -642,6 +629,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     async def after_home_assistant_started(event):
         """Call this function after Home Assistant has started."""
+        # Create motion sensor groups
+        try:
+            grouper = MotionSensorGrouper(hass)
+            await grouper.create_sensor_groups()
+            await grouper.create_security_sensor_group()
+        except Exception as e:
+            _LOGGER.warning("Failed to create motion sensor groups: %s", e)
+
+        # Create siren group
+        try:
+            siren_grouper = SirenGrouper(hass)
+            await siren_grouper.create_siren_group()
+        except Exception as e:
+            _LOGGER.warning("Failed to create siren group: %s", e)
+
         await loaddevicegroups(None)
 
         # TODO: Update the link below with the actual add-on slug
