@@ -21,8 +21,6 @@ class MotionNotificationsSwitch(SwitchEntity):
 
         self._is_on: bool = True
 
-        
-
     @cached_property
     def name(self) -> str | UndefinedType | None:
         """Return the name of the entity."""
@@ -65,4 +63,3 @@ class MotionNotificationsSwitch(SwitchEntity):
     async def async_added_to_hass(self):
         """Restore previous state when entity is added."""
         await super().async_added_to_hass()
-

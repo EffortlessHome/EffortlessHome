@@ -7,6 +7,7 @@ from aiohttp import web
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class BroadcastWebhook:
     """Class to handle Broadcast Webhook functionality."""
 
@@ -69,6 +70,7 @@ class BroadcastWebhook:
         except Exception as e:
             _LOGGER.error("Error processing broadcast webhook: %s", e)
             return web.Response(status=500, text="Internal server error")
+
 
 async def async_remove(self) -> None:
     """Unregister the webhook when the integration is removed."""

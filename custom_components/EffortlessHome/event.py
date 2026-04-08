@@ -9,6 +9,7 @@ from . import const
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class EventHandler:
     def __init__(self, hass) -> None:
         """Class constructor."""
@@ -55,7 +56,7 @@ class EventHandler:
         elif event in [const.EVENT_ARM, const.EVENT_DISARM]:
             data = dict(**args, area_id=area_id, action=event)
             if "arm_mode" in data:
-                data["mode"] = const.STATE_TO_ARM_MODE[data["arm_mode"]]
+                data["mode"] = const.STATE_TO_ARM_MODE[data["arm_mode"]]  # type: ignore[attr-defined]
                 del data["arm_mode"]
 
             self.hass.bus.async_fire("command_success", data)

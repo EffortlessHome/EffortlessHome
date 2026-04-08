@@ -1,5 +1,6 @@
 import logging
 from .notificationdevice import effortlesshomenotificationdevice
+
 _LOGGER = logging.getLogger(__name__)
 
 

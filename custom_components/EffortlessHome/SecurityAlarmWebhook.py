@@ -7,6 +7,7 @@ from aiohttp import web
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class SecurityAlarmWebhook:
     """Class to handle Security Alarm Webhook functionality."""
 
@@ -58,16 +59,14 @@ class SecurityAlarmWebhook:
                         if alarm_id == latestalarmid:
                             event_type = event["event_type"]
                             hass.states.async_set(
-                                DOMAIN +".alarmlasteventtype", event_type
+                                DOMAIN + ".alarmlasteventtype", event_type
                             )
 
                             if event_type == "alarm.closed":
-                                hass.states.async_set(
-                                    DOMAIN +".alarmstatus", "Closed"
-                                )
+                                hass.states.async_set(DOMAIN + ".alarmstatus", "Closed")
                             elif event_type == "alarm.status.canceled":
                                 hass.states.async_set(
-                                    DOMAIN +".alarmstatus", "Canceled"
+                                    DOMAIN + ".alarmstatus", "Canceled"
                                 )
 
             return web.Response(status=200, text="OK")

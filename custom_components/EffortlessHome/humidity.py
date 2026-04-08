@@ -32,14 +32,14 @@ class HumiditySensor(AutoEntity[SensorEntity, SensorDeviceClass], SensorEntity):
         return PERCENTAGE
 
     @override
-    @property
-    def state(self) -> Any:  # type: ignore
-        """Return the state of the entity."""
-        return self._aggregated_state
+    @cached_property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes."""
+        return {"state": self._aggregated_state}
 
     async def async_added_to_hass(self):
         """Restore previous state when entity is added."""
         await super().async_added_to_hass()
 
         if (last_state := await self.async_get_last_state()) is not None:
-            self.state = last_state.state
+            self._attr_native_value = last_state.state  # type: ignore[assignment]

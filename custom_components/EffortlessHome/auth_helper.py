@@ -9,7 +9,8 @@ from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-T = TypeVar('T')
+T = TypeVar("T")
+
 
 def _is_firebase_token_error(err: Exception) -> bool:
     """Check if the error is related to Firebase token expiration or invalidation."""
@@ -29,16 +30,20 @@ def _is_firebase_token_error(err: Exception) -> bool:
         return True
 
     # Check for common Firebase auth error patterns
-    if any(pattern in msg for pattern in [
-        "unauthorized",
-        "invalid authentication",
-        "token has expired",
-        "invalid token",
-        "authentication failed"
-    ]):
+    if any(
+        pattern in msg
+        for pattern in [
+            "unauthorized",
+            "invalid authentication",
+            "token has expired",
+            "invalid token",
+            "authentication failed",
+        ]
+    ):
         return True
 
     return False
+
 
 async def _refresh_id_token(hass) -> bool:
     """Refresh the Firebase ID token."""
@@ -82,35 +87,40 @@ async def _refresh_id_token(hass) -> bool:
         _LOGGER.exception("Unexpected error refreshing Firebase token: %s", e)
         return False
 
-def with_token_refresh(func: Callable[..., Awaitable[T]]) -> Callable[..., Awaitable[T]]:
+
+def with_token_refresh(
+    func: Callable[..., Awaitable[T]],
+) -> Callable[..., Awaitable[T]]:
     """
     Decorator to automatically handle Firebase token refresh for API calls.
-    
+
     This decorator wraps async functions that make API calls and automatically
     retries them with a refreshed token if a 401 authentication error occurs.
-    
+
     Usage:
         @with_token_refresh
         async def my_api_call(hass, system_id, id_token):
             async with OasiraAPIClient(system_id=system_id, id_token=id_token) as client:
                 return await client.some_method()
     """
+
     @wraps(func)
     async def wrapper(*args, **kwargs) -> T:
         hass = None
-        
+
         # Try to extract hass from args (usually first argument)
-        if args and hasattr(args[0], 'data'):
+        if args and hasattr(args[0], "data"):
             hass = args[0]
-        
+
         # If not found in args, try to get from kwargs
-        if not hass and 'hass' in kwargs:
-            hass = kwargs['hass']
-            
+        if not hass and "hass" in kwargs:
+            hass = kwargs["hass"]
+
         # If still not found, try to get from global HASSComponent
         if not hass:
             try:
                 from . import HASSComponent
+
                 hass = HASSComponent.get_hass()
             except ImportError:
                 pass
@@ -120,8 +130,10 @@ def with_token_refresh(func: Callable[..., Awaitable[T]]) -> Callable[..., Await
             return await func(*args, **kwargs)
         except OasiraAPIError as e:
             if hass and _is_firebase_token_error(e):
-                _LOGGER.warning("Firebase token error detected, attempting refresh: %s", e)
-                
+                _LOGGER.warning(
+                    "Firebase token error detected, attempting refresh: %s", e
+                )
+
                 # Try to refresh token
                 if await _refresh_id_token(hass):
                     _LOGGER.info("Token refreshed, retrying API call...")
@@ -129,7 +141,9 @@ def with_token_refresh(func: Callable[..., Awaitable[T]]) -> Callable[..., Await
                         # Retry the function with refreshed token
                         return await func(*args, **kwargs)
                     except OasiraAPIError as retry_error:
-                        _LOGGER.error("API call failed even after token refresh: %s", retry_error)
+                        _LOGGER.error(
+                            "API call failed even after token refresh: %s", retry_error
+                        )
                         raise retry_error
                 else:
                     _LOGGER.error("Failed to refresh token, cannot retry API call")
@@ -137,24 +151,27 @@ def with_token_refresh(func: Callable[..., Awaitable[T]]) -> Callable[..., Await
             else:
                 # Re-raise non-authentication errors
                 raise e
-    
+
     return wrapper
 
-async def safe_api_call(hass, api_call_func: Callable[..., Awaitable[T]], *args, **kwargs) -> T:
+
+async def safe_api_call(
+    hass, api_call_func: Callable[..., Awaitable[T]], *args, **kwargs
+) -> T:
     """
     Execute an API call with automatic token refresh handling.
-    
+
     This is an alternative to the decorator for cases where you need
     more control over the API call execution.
-    
+
     Args:
         hass: HomeAssistant instance
         api_call_func: The async function to call
         *args, **kwargs: Arguments to pass to the API call function
-        
+
     Returns:
         The result of the API call
-        
+
     Raises:
         OasiraAPIError: If the API call fails even after token refresh
     """
@@ -164,7 +181,7 @@ async def safe_api_call(hass, api_call_func: Callable[..., Awaitable[T]], *args,
     except OasiraAPIError as e:
         if _is_firebase_token_error(e):
             _LOGGER.warning("Firebase token error detected, attempting refresh: %s", e)
-            
+
             # Try to refresh token
             if await _refresh_id_token(hass):
                 _LOGGER.info("Token refreshed, retrying API call...")
@@ -172,7 +189,9 @@ async def safe_api_call(hass, api_call_func: Callable[..., Awaitable[T]], *args,
                     # Retry the API call with refreshed token
                     return await api_call_func(*args, **kwargs)
                 except OasiraAPIError as retry_error:
-                    _LOGGER.error("API call failed even after token refresh: %s", retry_error)
+                    _LOGGER.error(
+                        "API call failed even after token refresh: %s", retry_error
+                    )
                     raise retry_error
             else:
                 _LOGGER.error("Failed to refresh token, cannot retry API call")

@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 from functools import cached_property
@@ -20,7 +19,7 @@ class SmartApplianceConversionSwitch(SwitchEntity, RestoreEntity):
 
     def __init__(self, name) -> None:
         """Initialize SmartApplianceConversionSwitch"""
-     
+
         self._is_on: bool = False
         self.name = name
 

@@ -25,6 +25,7 @@ from .const import DOMAIN, NAME
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class VirtualPowerSensor(SensorEntity, RestoreEntity):
     """Representation of a Virtual Power Sensor."""
 
@@ -88,26 +89,39 @@ class VirtualPowerSensor(SensorEntity, RestoreEntity):
         state = self.hass.states.get(self._entity_id)
 
         _LOGGER.debug(("Sensor %s state: %s", self._entity_id, state))
-        
+
         if state:
             # Example logic: if the device is 'on', use 50W; otherwise, 0W
             self._state = self._watts if state.state == "on" else 0.0
-            print(f"Entity: {self._entity_id}, State: {state.state}, Power: {self._state}W")
+            _LOGGER.debug(
+                "Entity: %s, State: %s, Power: %sW",
+                self._entity_id,
+                state.state,
+                self._state,
+            )
             self.async_write_ha_state()
 
     async def async_added_to_hass(self):
         """Register callbacks when the sensor is added to Home Assistant."""
-        async_track_state_change(
+        # Call super() first to restore previous state
+        await super().async_added_to_hass()
+
+        # Restore previous state if available
+        if (last_state := await self.async_get_last_state()) is not None:
+            self._state = last_state.state
+
+        # Register state change callback and store unsubscribe callback for cleanup
+        self._unsubscribe = async_track_state_change(
             self.hass, [self._entity_id], lambda *_: self.update_virtual_power()
         )
         self.update_virtual_power()
 
-    async def async_added_to_hass(self):
-        """Restore previous state when entity is added."""
-        await super().async_added_to_hass()
+    async def async_will_remove_to_hass(self):
+        """Clean up callbacks when the entity is removed."""
+        if hasattr(self, '_unsubscribe') and self._unsubscribe:
+            self._unsubscribe()
+        await super().async_will_remove_to_hass()
 
-        if (last_state := await self.async_get_last_state()) is not None:
-            self._state = last_state.state    
 
 class VirtualPowerSensorAlwaysOn(SensorEntity, RestoreEntity):
     """Representation of a Virtual Power Sensor."""
@@ -152,23 +166,31 @@ class VirtualPowerSensorAlwaysOn(SensorEntity, RestoreEntity):
     @callback
     def update_virtual_power(self):
         """Update the power consumption based on the linked entity's state."""
-    
+
         self._state = self._watts
         # self.async_write_ha_state()
 
     async def async_added_to_hass(self):
         """Register callbacks when the sensor is added to Home Assistant."""
-        async_track_state_change(
+        # Call super() first to restore previous state
+        await super().async_added_to_hass()
+
+        # Restore previous state if available
+        if (last_state := await self.async_get_last_state()) is not None:
+            self._state = last_state.state
+
+        # Register state change callback and store unsubscribe callback for cleanup
+        self._unsubscribe = async_track_state_change(
             self.hass, [self._entity_id], lambda *_: self.update_virtual_power()
         )
         self.update_virtual_power()
 
-    async def async_added_to_hass(self):
-        """Restore previous state when entity is added."""
-        await super().async_added_to_hass()
+    async def async_will_remove_to_hass(self):
+        """Clean up callbacks when the entity is removed."""
+        if hasattr(self, '_unsubscribe') and self._unsubscribe:
+            self._unsubscribe()
+        await super().async_will_remove_to_hass()
 
-        if (last_state := await self.async_get_last_state()) is not None:
-            self._state = last_state.state    
 
 class FakeDeviceVirtualPowerSensor(SensorEntity, RestoreEntity):
     """Representation of a fake device virtual power sensor."""
@@ -222,7 +244,8 @@ class FakeDeviceVirtualPowerSensor(SensorEntity, RestoreEntity):
         await super().async_added_to_hass()
 
         if (last_state := await self.async_get_last_state()) is not None:
-            self._state = last_state.state    
+            self._state = last_state.state
+
 
 class TotalEnergySensor(SensorEntity, RestoreEntity):
     """Representation of a total energy sensor."""
@@ -233,7 +256,7 @@ class TotalEnergySensor(SensorEntity, RestoreEntity):
         self._state = None
         entity_id = f"sensor.total_energy_usage"
         self._entity_id = entity_id
-        self._attr_name = f"{entity_id}_energyr"
+        self._attr_name = f"{entity_id}_energy"
         self._attr_unique_id = f"power_{entity_id}"
 
     @property
@@ -299,7 +322,6 @@ class TotalEnergySensor(SensorEntity, RestoreEntity):
 
         # Convert watts to kilowatts and calculate energy usage
         self._state = round(total_watts / 1000, 2)
-
 
     async def async_added_to_hass(self):
         """Restore previous state when entity is added."""

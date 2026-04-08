@@ -21,10 +21,12 @@ CONST_ALARM_CONTROL_PANEL_NAME = "Alarm Panel"
 _LOGGER = logging.getLogger(__name__)
 hass = None
 
+
 async def async_setup_entry(hass: HomeAssistant, config_entry, async_add_entities):
     """Set up the alarm control panel."""
     hass = hass
     async_add_entities([AlarmControlPanel(hass)], True)
+
 
 class AlarmControlPanel(AlarmControlPanelEntity, RestoreEntity):
     """Representation of an alarm control panel."""

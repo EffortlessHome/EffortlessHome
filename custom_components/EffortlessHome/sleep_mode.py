@@ -53,9 +53,7 @@ class SleepModeSwitch(SwitchEntity, RestoreEntity):
         self._is_on = True
         self.schedule_update_ha_state()
         self.hass.add_job(
-            self.hass.bus.async_fire,
-            "sleeping_switch_updated",
-            {"is_on": self._is_on}
+            self.hass.bus.async_fire, "sleeping_switch_updated", {"is_on": self._is_on}
         )
 
     def turn_off(self, **kwargs):
@@ -64,10 +62,8 @@ class SleepModeSwitch(SwitchEntity, RestoreEntity):
         self._is_on = False
         self.schedule_update_ha_state()
         self.hass.add_job(
-            self.hass.bus.async_fire,
-            "sleeping_switch_updated",
-            {"is_on": self._is_on}
-        ) 
+            self.hass.bus.async_fire, "sleeping_switch_updated", {"is_on": self._is_on}
+        )
 
     async def async_added_to_hass(self):
         """Restore previous state when entity is added."""

@@ -36,7 +36,9 @@ class eh_person(SensorEntity, RestoreEntity):
         self.hass = hass
         self._email = email
         self._attr_name = email
-        self._attr_unique_id = f"effortlesshome_person_{email.lower().replace('@', '_').replace('.', '_')}"
+        self._attr_unique_id = (
+            f"effortlesshome_person_{email.lower().replace('@', '_').replace('.', '_')}"
+        )
         self._attr_icon = "mdi:account"
         self._attr_should_poll = False
 
@@ -49,8 +51,6 @@ class eh_person(SensorEntity, RestoreEntity):
         self._device_registry = async_get_dev_reg(hass) if hass else None
         self._device_id = None
 
-        
-
     # ---- Standard HA Properties ----
     @property
     def unique_id(self) -> str:
@@ -62,7 +62,7 @@ class eh_person(SensorEntity, RestoreEntity):
 
     @property
     def state(self) -> str:
-        return self.remotetracker + "|"+ self.localtracker
+        return self.remotetracker + "|" + self.localtracker
 
     @property
     def name(self) -> str:
@@ -91,7 +91,6 @@ class eh_person(SensorEntity, RestoreEntity):
                 return "unknown"
         else:
             return "unknown"
-
 
     @property
     def remotetracker(self) -> str:
@@ -151,17 +150,21 @@ class eh_person(SensorEntity, RestoreEntity):
     # ---- Device linking ----
     async def async_set_local_tracker(self, entity_id: str):
         self._local_tracker_entity_id = entity_id
-        _LOGGER.info("[eh_person] Linked local tracker for %s: %s", self._email, entity_id)
+        _LOGGER.info(
+            "[eh_person] Linked local tracker for %s: %s", self._email, entity_id
+        )
         self.async_write_ha_state()
-        
+
         # Set up geofencing for the new tracker
         await self.async_setup_geofencing()
 
     async def async_set_remote_tracker(self, entity_id: str):
         self._remote_tracker_entity_id = entity_id
-        _LOGGER.info("[eh_person] Linked remote tracker for %s: %s", self._email, entity_id)
+        _LOGGER.info(
+            "[eh_person] Linked remote tracker for %s: %s", self._email, entity_id
+        )
         self.async_write_ha_state()
-        
+
         # Set up geofencing for the new tracker
         await self.async_setup_geofencing()
 
@@ -173,34 +176,51 @@ class eh_person(SensorEntity, RestoreEntity):
             _LOGGER.warning("[eh_person] Missing token for notification registration.")
             return
 
-        existing = next((d for d in self._notification_devices if d.Name == device_name), None)
+        existing = next(
+            (d for d in self._notification_devices if d.Name == device_name), None
+        )
         if existing:
-            _LOGGER.info("[eh_person] Device %s already registered for %s", device_name, self._email)
+            _LOGGER.info(
+                "[eh_person] Device %s already registered for %s",
+                device_name,
+                self._email,
+            )
 
-            #update mode
+            # update mode
             existing.DeviceToken = token
             existing.Platform = platform_name
             self.async_write_ha_state()
-            _LOGGER.info("[eh_person] Updated notification device %s for %s", device_name, self._email)
+            _LOGGER.info(
+                "[eh_person] Updated notification device %s for %s",
+                device_name,
+                self._email,
+            )
 
         else:
-            device = effortlesshomenotificationdevice(hass, token, device_name, platform_name)
+            device = effortlesshomenotificationdevice(
+                hass, token, device_name, platform_name
+            )
             self._notification_devices.append(device)
             self.async_write_ha_state()
-            _LOGGER.info("[eh_person] Added notification device %s for %s", device_name, self._email)
+            _LOGGER.info(
+                "[eh_person] Added notification device %s for %s",
+                device_name,
+                self._email,
+            )
 
-    async def async_remove_notification_devices(
-        self, hass: HomeAssistant
-    ):
+    async def async_remove_notification_devices(self, hass: HomeAssistant):
         """Remove all notification devices."""
         if not self._notification_devices:
-            _LOGGER.info("[eh_person] No notification devices to remove for %s", self._email)
-            return      
+            _LOGGER.info(
+                "[eh_person] No notification devices to remove for %s", self._email
+            )
+            return
         else:
             self._notification_devices.clear()
             self.async_write_ha_state()
-            _LOGGER.info("[eh_person] Removed all notification devices for %s", self._email)
-
+            _LOGGER.info(
+                "[eh_person] Removed all notification devices for %s", self._email
+            )
 
     async def async_added_to_hass(self):
         """Handle entity addition and restore previous state."""
@@ -215,20 +235,28 @@ class eh_person(SensorEntity, RestoreEntity):
         self._remote_tracker_entity_id = attrs.get("remote_tracker")
 
         restored_devices_raw = attrs.get("notification_devices")
-        _LOGGER.debug("[eh_person] Raw restored notification_devices: (%s) %r",
-                    type(restored_devices_raw).__name__, restored_devices_raw)
+        _LOGGER.debug(
+            "[eh_person] Raw restored notification_devices: (%s) %r",
+            type(restored_devices_raw).__name__,
+            restored_devices_raw,
+        )
 
         devices_list: list = []
 
         def try_parse_json_string(s: str) -> list:
             """Try several ways to parse a JSON string into a list of dicts."""
             s_stripped = s.strip()
-            _LOGGER.debug("[eh_person] Attempting to parse JSON string chunk: %r", s_stripped[:200])
+            _LOGGER.debug(
+                "[eh_person] Attempting to parse JSON string chunk: %r",
+                s_stripped[:200],
+            )
             # 1) Try direct load (handles object or array)
             try:
                 parsed = json.loads(s_stripped)
                 if isinstance(parsed, list):
-                    _LOGGER.debug("[eh_person] Parsed JSON as list with %d items", len(parsed))
+                    _LOGGER.debug(
+                        "[eh_person] Parsed JSON as list with %d items", len(parsed)
+                    )
                     return parsed
                 if isinstance(parsed, dict):
                     _LOGGER.debug("[eh_person] Parsed JSON as single object")
@@ -241,7 +269,10 @@ class eh_person(SensorEntity, RestoreEntity):
                 wrapped = f"[{s_stripped}]"
                 try:
                     parsed = json.loads(wrapped)
-                    _LOGGER.debug("[eh_person] Parsed by wrapping in brackets -> %d items", len(parsed))
+                    _LOGGER.debug(
+                        "[eh_person] Parsed by wrapping in brackets -> %d items",
+                        len(parsed),
+                    )
                     return parsed
                 except json.JSONDecodeError as e:
                     _LOGGER.debug("[eh_person] Wrapped json.loads failed: %s", e)
@@ -256,43 +287,72 @@ class eh_person(SensorEntity, RestoreEntity):
                     candidate = candidate + "]"
                 try:
                     parsed = json.loads(candidate)
-                    _LOGGER.debug("[eh_person] Parsed by forcing array brackets -> %d items", len(parsed))
+                    _LOGGER.debug(
+                        "[eh_person] Parsed by forcing array brackets -> %d items",
+                        len(parsed),
+                    )
                     return parsed
                 except json.JSONDecodeError as e:
                     _LOGGER.debug("[eh_person] Forced-array json.loads failed: %s", e)
 
-            _LOGGER.warning("[eh_person] Failed to parse JSON chunk; skipping. chunk preview: %r", s_stripped[:200])
+            _LOGGER.warning(
+                "[eh_person] Failed to parse JSON chunk; skipping. chunk preview: %r",
+                s_stripped[:200],
+            )
             return []
 
         # If it's a list, individual elements may be dicts or JSON strings
         if isinstance(restored_devices_raw, list):
-            _LOGGER.debug("[eh_person] notification_devices is a list with %d elements", len(restored_devices_raw))
+            _LOGGER.debug(
+                "[eh_person] notification_devices is a list with %d elements",
+                len(restored_devices_raw),
+            )
             for idx, item in enumerate(restored_devices_raw):
-                _LOGGER.debug("[eh_person] Inspecting list element %d type=%s", idx, type(item).__name__)
+                _LOGGER.debug(
+                    "[eh_person] Inspecting list element %d type=%s",
+                    idx,
+                    type(item).__name__,
+                )
                 if isinstance(item, dict):
                     devices_list.append(item)
                 elif isinstance(item, str):
                     parsed = try_parse_json_string(item)
                     devices_list.extend([p for p in parsed if isinstance(p, dict)])
                 else:
-                    _LOGGER.warning("[eh_person] Unsupported list element type in notification_devices: %s", type(item))
+                    _LOGGER.warning(
+                        "[eh_person] Unsupported list element type in notification_devices: %s",
+                        type(item),
+                    )
         elif isinstance(restored_devices_raw, str):
             # The attribute is a string; it may contain one or many JSON objects (or an array string)
             parsed = try_parse_json_string(restored_devices_raw)
             devices_list.extend([p for p in parsed if isinstance(p, dict)])
         elif restored_devices_raw is None:
-            _LOGGER.info("[eh_person] No notification_devices attribute to restore for %s", self._email)
+            _LOGGER.info(
+                "[eh_person] No notification_devices attribute to restore for %s",
+                self._email,
+            )
         else:
-            _LOGGER.warning("[eh_person] Unexpected type for notification_devices: %s", type(restored_devices_raw))
+            _LOGGER.warning(
+                "[eh_person] Unexpected type for notification_devices: %s",
+                type(restored_devices_raw),
+            )
 
-        _LOGGER.debug("[eh_person] Devices parsed count=%d : %s",
-                    len(devices_list), [d.get("name") for d in devices_list])
+        _LOGGER.debug(
+            "[eh_person] Devices parsed count=%d : %s",
+            len(devices_list),
+            [d.get("name") for d in devices_list],
+        )
 
         # Reconstruct device objects safely
         restored_objs = []
         for d_idx, d in enumerate(devices_list):
             if not isinstance(d, dict):
-                _LOGGER.debug("[eh_person] Skipping non-dict device entry at index %d: %r", d_idx, d)
+                _LOGGER.debug(
+                    "[eh_person] Skipping non-dict device entry at index %d: %r",
+                    d_idx,
+                    d,
+                )
                 continue
             try:
                 # prefer a from_dict constructor if available
@@ -313,9 +373,14 @@ class eh_person(SensorEntity, RestoreEntity):
                     )
                     obj._state = d.get("state", "available")
                 restored_objs.append(obj)
-                _LOGGER.info("[eh_person] Restored notification device: %s", getattr(obj, "Name", d.get("name")))
+                _LOGGER.info(
+                    "[eh_person] Restored notification device: %s",
+                    getattr(obj, "Name", d.get("name")),
+                )
             except Exception as e:
-                _LOGGER.exception("[eh_person] Failed to reconstruct device from dict %r: %s", d, e)
+                _LOGGER.exception(
+                    "[eh_person] Failed to reconstruct device from dict %r: %s", d, e
+                )
 
         self._notification_devices = restored_objs
 
@@ -335,7 +400,7 @@ class eh_person(SensorEntity, RestoreEntity):
             # ---- Fetch service account JSON using API client ----
             # Get the id_token from hass.data for authentication
             id_token = self.hass.data[DOMAIN].get("id_token") if self.hass else None
-            
+
             async with OasiraAPIClient(id_token=id_token) as client:
                 firebase_config = await client.get_firebase_config()
 
@@ -385,30 +450,33 @@ class eh_person(SensorEntity, RestoreEntity):
             _LOGGER.exception("Failed to refresh Firebase access token: %s", e)
             return None
 
-
     def __repr__(self):
         return f"<eh_person email={self._email!r} devices={len(self._notification_devices)}>"
 
-
     # ---- Geofencing functionality ----
-    def _calculate_distance(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    def _calculate_distance(
+        self, lat1: float, lon1: float, lat2: float, lon2: float
+    ) -> float:
         """Calculate distance between two points using haversine formula."""
         # Earth's radius in meters
         R = 6371000
-        
+
         # Convert degrees to radians
         lat1_rad = math.radians(lat1)
         lon1_rad = math.radians(lon1)
         lat2_rad = math.radians(lat2)
         lon2_rad = math.radians(lon2)
-        
+
         # Haversine formula
         dlat = lat2_rad - lat1_rad
         dlon = lon2_rad - lon1_rad
-        
-        a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+
+        a = (
+            math.sin(dlat / 2) ** 2
+            + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+        )
         c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-        
+
         distance = R * c
         return distance
 
@@ -418,7 +486,7 @@ class eh_person(SensorEntity, RestoreEntity):
             # Try to get home coordinates from system configuration
             system_data = self.hass.data.get(DOMAIN, {})
             address_json = system_data.get("address_json")
-            
+
             if address_json:
                 # Parse address JSON to extract coordinates
                 # This assumes the address_json contains latitude and longitude
@@ -426,27 +494,31 @@ class eh_person(SensorEntity, RestoreEntity):
                     address_data = json.loads(address_json)
                 else:
                     address_data = address_json
-                
+
                 lat = address_data.get("latitude")
                 lon = address_data.get("longitude")
-                
+
                 if lat is not None and lon is not None:
                     return (float(lat), float(lon))
-                    
+
         except Exception as e:
-            _LOGGER.debug("[eh_person] Could not get home coordinates from system config: %s", e)
-        
+            _LOGGER.debug(
+                "[eh_person] Could not get home coordinates from system config: %s", e
+            )
+
         # Fallback: try to get coordinates from Home Assistant configuration
         try:
             home_lat = self.hass.config.latitude
             home_lon = self.hass.config.longitude
-            
+
             if home_lat is not None and home_lon is not None:
                 return (float(home_lat), float(home_lon))
-                
+
         except Exception as e:
-            _LOGGER.debug("[eh_person] Could not get home coordinates from HA config: %s", e)
-        
+            _LOGGER.debug(
+                "[eh_person] Could not get home coordinates from HA config: %s", e
+            )
+
         return None
 
     def _get_geofence_radius(self) -> float:
@@ -459,31 +531,31 @@ class eh_person(SensorEntity, RestoreEntity):
         if tracker_state in ["home", "not_home"]:
             # If the tracker already has a clear state, use it
             return tracker_state
-        
+
         # Get current location from the tracker entity
         entity = self.hass.states.get(entity_id)
         if not entity:
             return "unknown"
-        
+
         # Get latitude and longitude from entity attributes
         lat = entity.attributes.get(ATTR_LATITUDE)
         lon = entity.attributes.get(ATTR_LONGITUDE)
-        
+
         if lat is None or lon is None:
             return "unknown"
-        
+
         # Get home coordinates
         home_coords = self._get_home_coordinates()
         if not home_coords:
             _LOGGER.warning("[eh_person] No home coordinates available for geofencing")
             return "unknown"
-        
+
         home_lat, home_lon = home_coords
-        
+
         # Calculate distance
         distance = self._calculate_distance(lat, lon, home_lat, home_lon)
         radius = self._get_geofence_radius()
-        
+
         # Determine state based on distance
         if distance <= radius:
             return "home"
@@ -494,40 +566,53 @@ class eh_person(SensorEntity, RestoreEntity):
         """Update tracker state and trigger state change if needed."""
         if entity_id == self._local_tracker_entity_id:
             # Update local tracker
-            if hasattr(self, '_local_tracker_state'):
+            if hasattr(self, "_local_tracker_state"):
                 old_state = self._local_tracker_state
             else:
                 old_state = "unknown"
-            
+
             self._local_tracker_state = new_state
-            
+
             if old_state != new_state:
-                _LOGGER.info("[eh_person] Local tracker state changed for %s: %s -> %s", 
-                           self._email, old_state, new_state)
+                _LOGGER.info(
+                    "[eh_person] Local tracker state changed for %s: %s -> %s",
+                    self._email,
+                    old_state,
+                    new_state,
+                )
                 self.async_write_ha_state()
-        
+
         elif entity_id == self._remote_tracker_entity_id:
             # Update remote tracker
-            if hasattr(self, '_remote_tracker_state'):
+            if hasattr(self, "_remote_tracker_state"):
                 old_state = self._remote_tracker_state
             else:
                 old_state = "unknown"
-            
+
             self._remote_tracker_state = new_state
-            
+
             if old_state != new_state:
-                _LOGGER.info("[eh_person] Remote tracker state changed for %s: %s -> %s", 
-                           self._email, old_state, new_state)
+                _LOGGER.info(
+                    "[eh_person] Remote tracker state changed for %s: %s -> %s",
+                    self._email,
+                    old_state,
+                    new_state,
+                )
                 self.async_write_ha_state()
 
     async def _handle_location_change(self, entity_id: str, old_state, new_state):
         """Handle location changes from device trackers."""
-        if entity_id not in [self._local_tracker_entity_id, self._remote_tracker_entity_id]:
+        if entity_id not in [
+            self._local_tracker_entity_id,
+            self._remote_tracker_entity_id,
+        ]:
             return
-        
+
         # Calculate dynamic state based on new location
-        dynamic_state = self._calculate_dynamic_state(new_state.state if new_state else "unknown", entity_id)
-        
+        dynamic_state = self._calculate_dynamic_state(
+            new_state.state if new_state else "unknown", entity_id
+        )
+
         if dynamic_state != "unknown":
             await self._update_tracker_state(entity_id, dynamic_state)
 
@@ -535,20 +620,22 @@ class eh_person(SensorEntity, RestoreEntity):
         """Set up geofencing for linked trackers."""
         if not self._local_tracker_entity_id and not self._remote_tracker_entity_id:
             return
-        
+
         # Set up state change listeners for both trackers
         if self._local_tracker_entity_id:
             async_track_state_change_event(
-                self.hass,
-                self._local_tracker_entity_id,
-                self._handle_location_change
+                self.hass, self._local_tracker_entity_id, self._handle_location_change
             )
-            _LOGGER.info("[eh_person] Set up geofencing for local tracker: %s", self._local_tracker_entity_id)
-        
+            _LOGGER.info(
+                "[eh_person] Set up geofencing for local tracker: %s",
+                self._local_tracker_entity_id,
+            )
+
         if self._remote_tracker_entity_id:
             async_track_state_change_event(
-                self.hass,
-                self._remote_tracker_entity_id,
-                self._handle_location_change
+                self.hass, self._remote_tracker_entity_id, self._handle_location_change
             )
-            _LOGGER.info("[eh_person] Set up geofencing for remote tracker: %s", self._remote_tracker_entity_id)
+            _LOGGER.info(
+                "[eh_person] Set up geofencing for remote tracker: %s",
+                self._remote_tracker_entity_id,
+            )

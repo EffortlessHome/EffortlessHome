@@ -16,6 +16,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class PendingAlarm:
     def __init__(
         self,
@@ -31,6 +32,7 @@ class PendingAlarm:
         self.sensor_device_name = sensor_device_name
         self.hass = hass
         self.alarmtype = alarmtype
+
 
 class PendingAlarmComponent:
     # Class-level property to hold the pending alarm instance
@@ -63,13 +65,16 @@ def _is_firebase_token_error(err: Exception) -> bool:
         return True
 
     # Check for common Firebase auth error patterns
-    if any(pattern in msg for pattern in [
-        "unauthorized",
-        "invalid authentication",
-        "token has expired",
-        "invalid token",
-        "authentication failed"
-    ]):
+    if any(
+        pattern in msg
+        for pattern in [
+            "unauthorized",
+            "invalid authentication",
+            "token has expired",
+            "invalid token",
+            "authentication failed",
+        ]
+    ):
         return True
 
     return False
@@ -178,7 +183,6 @@ async def async_confirmpendingalarm(hass: HomeAssistant):
 
     pendingAlarm = PendingAlarmComponent.get_pendingalarm()
 
-
     _LOGGER.info("Pending Alarm: %s", pendingAlarm)
 
     if pendingAlarm is None:
@@ -208,20 +212,24 @@ async def async_createsecurityalarm(pendingAlarm):
     # Check for feature id 3 in plan features
     plan_features = hass.data[DOMAIN].get("plan_features")
 
-    #TODO: Jermie - fix api and remove this workaround
-    has_feature_3 = True #False
+    # TODO: Jermie - fix api and remove this workaround
+    has_feature_3 = True  # False
 
     if plan_features:
         # plan_features may be a dict with a 'features' key or a list of dicts
-        features = plan_features.get("features") if isinstance(plan_features, dict) else None
+        features = (
+            plan_features.get("features") if isinstance(plan_features, dict) else None
+        )
         if features and isinstance(features, list):
             has_feature_3 = any(
-                (isinstance(f, dict) and f.get("feature_id") == 3) or (isinstance(f, int) and f == 3)
+                (isinstance(f, dict) and f.get("feature_id") == 3)
+                or (isinstance(f, int) and f == 3)
                 for f in features
             )
         elif isinstance(plan_features, list):
             has_feature_3 = any(
-                (isinstance(f, dict) and f.get("feature_id") == 3) or (isinstance(f, int) and f == 3)
+                (isinstance(f, dict) and f.get("feature_id") == 3)
+                or (isinstance(f, int) and f == 3)
                 for f in plan_features
             )
     if not has_feature_3:
@@ -230,13 +238,13 @@ async def async_createsecurityalarm(pendingAlarm):
 
     systemid = hass.data[DOMAIN].get("systemid")
 
-    _LOGGER.info("System ID: %s", hass.data[DOMAIN].get("systemid"))  
-    _LOGGER.info("Email Address: %s", hass.data[DOMAIN].get("username"))  
+    _LOGGER.info("System ID: %s", hass.data[DOMAIN].get("systemid"))
+    _LOGGER.info("Email Address: %s", hass.data[DOMAIN].get("username"))
 
     # Populate alarm_data with the actual triggering sensor
     alarm_data = {
         "sensor_device_class": pendingAlarm.sensor_device_class or "unknown",
-        "sensor_device_name": pendingAlarm.sensor_device_name or "unknown"
+        "sensor_device_name": pendingAlarm.sensor_device_name or "unknown",
     }
 
     _LOGGER.info("Calling create monitoring alarm API with payload: %s", alarm_data)
@@ -280,10 +288,14 @@ async def async_createsecurityalarm(pendingAlarm):
                         PendingAlarmComponent.set_pendingalarm(None)
                         return
                     except OasiraAPIError as retry_error:
-                        _LOGGER.error("Failed to create security alarm after refresh: %s", retry_error)
+                        _LOGGER.error(
+                            "Failed to create security alarm after refresh: %s",
+                            retry_error,
+                        )
                         return
 
             _LOGGER.error("Failed to create security alarm: %s", e)
+
 
 async def async_createmonitoringalarm(pendingAlarm):
     """Call the API to create a monitoring alarm."""
@@ -299,29 +311,32 @@ async def async_createmonitoringalarm(pendingAlarm):
     plan_features = hass.data[DOMAIN].get("plan_features")
     has_feature_4 = False
     if plan_features:
-        features = plan_features.get("features") if isinstance(plan_features, dict) else None
+        features = (
+            plan_features.get("features") if isinstance(plan_features, dict) else None
+        )
         if features and isinstance(features, list):
             has_feature_4 = any(
-                (isinstance(f, dict) and f.get("feature_id") == 4) or (isinstance(f, int) and f == 4)
+                (isinstance(f, dict) and f.get("feature_id") == 4)
+                or (isinstance(f, int) and f == 4)
                 for f in features
             )
         elif isinstance(plan_features, list):
             has_feature_4 = any(
-                (isinstance(f, dict) and f.get("feature_id") == 4) or (isinstance(f, int) and f == 4)
+                (isinstance(f, dict) and f.get("feature_id") == 4)
+                or (isinstance(f, int) and f == 4)
                 for f in plan_features
             )
     if not has_feature_4:
         _LOGGER.info("No Active Monitoring Plan (feature id 4 not present)")
         return
 
-    systemid = hass.data[DOMAIN].get("systemid") 
+    systemid = hass.data[DOMAIN].get("systemid")
     id_token = hass.data[DOMAIN].get("id_token")
-
 
     # Populate alarm_data with the actual triggering sensor
     alarm_data = {
         "sensor_device_class": pendingAlarm.sensor_device_class or "unknown",
-        "sensor_device_name": pendingAlarm.sensor_device_name or "unknown"
+        "sensor_device_name": pendingAlarm.sensor_device_name or "unknown",
     }
 
     _LOGGER.info("Calling create medical alarm API with payload: %s", alarm_data)
@@ -363,10 +378,14 @@ async def async_createmonitoringalarm(pendingAlarm):
                         PendingAlarmComponent.set_pendingalarm(None)
                         return
                     except OasiraAPIError as retry_error:
-                        _LOGGER.error("Failed to create monitoring alarm after refresh: %s", retry_error)
+                        _LOGGER.error(
+                            "Failed to create monitoring alarm after refresh: %s",
+                            retry_error,
+                        )
                         return
 
             _LOGGER.error("Failed to create monitoring alarm: %s", e)
+
 
 async def async_createmedicalalertalarm(pendingAlarm):
     """Call the API to create a medical alarm."""
@@ -381,26 +400,30 @@ async def async_createmedicalalertalarm(pendingAlarm):
     plan_features = hass.data[DOMAIN].get("plan_features")
     has_feature_5 = False
     if plan_features:
-        features = plan_features.get("features") if isinstance(plan_features, dict) else None
+        features = (
+            plan_features.get("features") if isinstance(plan_features, dict) else None
+        )
         if features and isinstance(features, list):
             has_feature_5 = any(
-                (isinstance(f, dict) and f.get("feature_id") == 5) or (isinstance(f, int) and f == 5)
+                (isinstance(f, dict) and f.get("feature_id") == 5)
+                or (isinstance(f, int) and f == 5)
                 for f in features
             )
         elif isinstance(plan_features, list):
             has_feature_5 = any(
-                (isinstance(f, dict) and f.get("feature_id") == 5) or (isinstance(f, int) and f == 5)
+                (isinstance(f, dict) and f.get("feature_id") == 5)
+                or (isinstance(f, int) and f == 5)
                 for f in plan_features
             )
     if not has_feature_5:
         _LOGGER.info("No Active Medical Alert Alarm Plan (feature id 5 not present)")
         return
 
-    systemid = hass.data[DOMAIN].get("systemid") 
+    systemid = hass.data[DOMAIN].get("systemid")
 
     alarm_data = {
         "sensor_device_class": "medical",
-        "sensor_device_name": "medical alert"
+        "sensor_device_name": "medical alert",
     }
 
     _LOGGER.info("Calling create medical alarm API with payload: %s", alarm_data)
@@ -444,10 +467,14 @@ async def async_createmedicalalertalarm(pendingAlarm):
                         PendingAlarmComponent.set_pendingalarm(None)
                         return
                     except OasiraAPIError as retry_error:
-                        _LOGGER.error("Failed to create medical alarm after refresh: %s", retry_error)
+                        _LOGGER.error(
+                            "Failed to create medical alarm after refresh: %s",
+                            retry_error,
+                        )
                         return
 
             _LOGGER.error("Failed to create medical alarm: %s", e)
+
 
 async def async_cancelalarm(hass: HomeAssistant):
     """Call the API to create a medical alarm."""
@@ -528,6 +555,7 @@ async def async_cancelalarm(hass: HomeAssistant):
                     _LOGGER.error("Failed to cancel alarm: %s", e)
                     return None
     return None
+
 
 async def async_getalarmstatus(hass: HomeAssistant):
     """Call the API to create a medical alarm."""

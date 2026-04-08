@@ -84,7 +84,7 @@ class AutoLightGroup(LightGroup):
         LightGroup.__init__(
             self,
             unique_id=self._attr_unique_id,
-            name=None,
+            name="",
             entity_ids=self.entity_ids,
             mode=None,
         )
@@ -127,7 +127,7 @@ class AllLightGroup(LightGroup):
         LightGroup.__init__(
             self,
             unique_id=self._attr_unique_id,
-            name=None,
+            name="",
             entity_ids=self.entity_ids,
             mode=None,
         )

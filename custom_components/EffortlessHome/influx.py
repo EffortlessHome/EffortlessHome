@@ -5,12 +5,11 @@ import yaml
 import requests
 import aiohttp
 import asyncio
-from .const import DOMAIN, DOMAIN
-from homeassistant.core import (
-    HomeAssistant,
-    ServiceCall)
+from .const import DOMAIN
+from homeassistant.core import HomeAssistant, ServiceCall
 
 HA_URL = "http://homeassistant.local:8123"
+
 
 async def process_trend_data(call: ServiceCall):
     """Handle the service call."""
@@ -22,6 +21,9 @@ async def process_trend_data(call: ServiceCall):
     trend_data = await get_trend_data(call)
 
     print(json.dumps(trend_data, indent=2))  # For debugging
+
+    # Analyze data and generate automation suggestions
+    gemini_response = analyze_home_data(trend_data)
 
     validate_automations(call)
 
@@ -86,9 +88,10 @@ def analyze_home_data(trend_data):
     - Predictive automations based on usage patterns
     """
 
+
 def validate_automations(call: ServiceCall):
     headers = {
-        "Authorization": f"Bearer {call.hass.data[DOMAIN]["ha_token"]}",
+        "Authorization": f"Bearer {call.hass.data[DOMAIN]['ha_token']}",
         "Content-Type": "application/json",
     }
 

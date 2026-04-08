@@ -490,6 +490,15 @@ RECOMMENDED_AI_TASK_OPTIONS = {
 }
 
 
+# State to arm mode mapping for event.py
+STATE_TO_ARM_MODE = {
+    "arm_away": "away",
+    "arm_home": "home",
+    "arm_night": "night",
+    "arm_vacation": "vacation",
+    "arm_custom_bypass": "custom_bypass",
+}
+
 ATTR_LATITUDE = "latitude"
 ATTR_LONGITUDE = "longitude"
 CONF_EMAIL = "email"

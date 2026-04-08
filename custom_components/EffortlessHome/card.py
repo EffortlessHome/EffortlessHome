@@ -12,7 +12,7 @@ _LOGGER = logging.getLogger(__name__)
 
 @decorators.websocket_command(
     {
-        vol.Required("type"): DOMAIN +"_updated",
+        vol.Required("type"): DOMAIN + "_updated",
     }
 )
 @decorators.async_response
@@ -30,7 +30,7 @@ async def handle_subscribe_updates(hass, connection, msg) -> None:
         )
 
     connection.subscriptions[msg["id"]] = async_dispatcher_connect(
-        hass, DOMAIN +"_event", handle_event
+        hass, DOMAIN + "_event", handle_event
     )
     connection.send_result(msg["id"])
 

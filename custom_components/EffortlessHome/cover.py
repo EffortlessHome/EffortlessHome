@@ -95,7 +95,7 @@ class AutoCoverGroup(CoverGroup):
         CoverGroup.__init__(
             self,
             entities=self.entity_ids,
-            name=None,
+            name="",
             unique_id=self._attr_unique_id,
         )
         _LOGGER.info(

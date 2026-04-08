@@ -57,6 +57,9 @@ from homeassistant.components.http.view import HomeAssistantView
 from homeassistant.components.frontend import add_extra_js_url
 from homeassistant.components import conversation
 
+ATTR_TITLE = "title"
+ATTR_DATA = "data"
+
 from .alarm_common import (
     async_cancelalarm,
     async_confirmpendingalarm,
@@ -71,11 +74,11 @@ from .auth_helper import safe_api_call
 from .const import (
     DOMAIN,
     LABELS,
-    CONF_EMAIL, 
+    CONF_EMAIL,
     ATTR_LATITUDE,
     ATTR_LONGITUDE,
     NAME,
-    name_internal
+    name_internal,
 )
 
 
@@ -84,6 +87,7 @@ from .event import EventHandler
 from .MotionSensorGrouper import MotionSensorGrouper
 from .SecurityAlarmWebhook import SecurityAlarmWebhook, async_remove
 from .BroadcastWebhook import BroadcastWebhook, async_remove
+from .siren import SirenGrouper
 
 from .virtualpowersensor import VirtualPowerSensor
 
@@ -99,12 +103,14 @@ except ImportError:
 
 from aiohttp import web
 
-LOCATION_SERVICE_SCHEMA = vol.Schema({
-    vol.Required("device_id"): str,
-    vol.Required("latitude"): float,
-    vol.Required("longitude"): float,
-    vol.Optional("accuracy"): float,
-})
+LOCATION_SERVICE_SCHEMA = vol.Schema(
+    {
+        vol.Required("device_id"): str,
+        vol.Required("latitude"): float,
+        vol.Required("longitude"): float,
+        vol.Optional("accuracy"): float,
+    }
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -113,6 +119,7 @@ FIREBASE_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 FCM_URL = "https://fcm.googleapis.com/v1/projects/oasira-oauth/messages:send"
 PUSH_TOKEN_STORAGE_KEY = "effortlesshome_push_tokens"
 PUSH_TOKEN_STORAGE_VERSION = 1
+
 
 class HASSComponent:
     """Hasscomponent."""
@@ -126,7 +133,7 @@ class HASSComponent:
         cls.hass_instance = hass
 
     @classmethod
-    def get_hass(cls):  
+    def get_hass(cls):
         """Get Hass."""
         return cls.hass_instance
 
@@ -162,7 +169,9 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                 continue
 
             key_str = str(key)
-            value_str = json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+            value_str = (
+                json.dumps(value) if isinstance(value, (dict, list)) else str(value)
+            )
 
             if key_str in {"url", "link"}:
                 links.append(value_str)
@@ -178,7 +187,10 @@ class EffortlessHomeNotificationService(BaseNotificationService):
 
         compact_parts = []
         if links:
-            compact_parts.append("Links: " + " | ".join(f"[Link {i + 1}]({link})" for i, link in enumerate(links)))
+            compact_parts.append(
+                "Links: "
+                + " | ".join(f"[Link {i + 1}]({link})" for i, link in enumerate(links))
+            )
 
         if images:
             # Always show images in persistent notifications
@@ -187,7 +199,10 @@ class EffortlessHomeNotificationService(BaseNotificationService):
 
         if extra_items:
             compact_parts.append(
-                "Data: " + "; ".join(f"`{key_str}`={value_str}" for key_str, value_str in extra_items)
+                "Data: "
+                + "; ".join(
+                    f"`{key_str}`={value_str}" for key_str, value_str in extra_items
+                )
             )
 
         if compact_parts:
@@ -195,7 +210,9 @@ class EffortlessHomeNotificationService(BaseNotificationService):
 
         return "\n".join(lines)
 
-    async def _send_fcm_notification(self, message: str, title: str, data: dict) -> None:
+    async def _send_fcm_notification(
+        self, message: str, title: str, data: dict
+    ) -> None:
         tokens = self.hass.data.get(DOMAIN, {}).get("notification_tokens", [])
         if not tokens:
             _LOGGER.warning("No registered notification tokens")
@@ -210,7 +227,10 @@ class EffortlessHomeNotificationService(BaseNotificationService):
         _LOGGER.info("[EffortlessHome] Using FCM project: %s", project_id)
 
         session = async_get_clientsession(self.hass)
-        headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
 
         image_url = None
         payload_data = None
@@ -240,33 +260,28 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             if image_url:
                 # Enhanced image handling for better native notification support
                 payload["message"]["notification"]["image"] = image_url
-                payload["message"]["fcm_options"] = {
-                    "image": image_url
-                }
+                payload["message"]["fcm_options"] = {"image": image_url}
                 payload["message"]["android"] = {
                     "notification": {
                         "image": image_url,
                         "icon": "ic_stat_ic_notification",
-                        "color": "#007bff"
+                        "color": "#007bff",
                     }
                 }
                 payload["message"]["apns"] = {
                     "payload": {
                         "aps": {
-                            "alert": {
-                                "title": title,
-                                "body": message
-                            },
-                            "mutable-content": 1
+                            "alert": {"title": title, "body": message},
+                            "mutable-content": 1,
                         },
-                        "image_url": image_url
+                        "image_url": image_url,
                     }
                 }
                 # Add webpush for web notifications
                 payload["message"]["webpush"] = {
                     "notification": {
                         "image": image_url,
-                        "icon": "/local/effortlesshome/user.png"
+                        "icon": "/local/effortlesshome/user.png",
                     }
                 }
 
@@ -276,11 +291,15 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                         text = await resp.text()
                         _LOGGER.error("FCM push failed: %s", text)
                     else:
-                        _LOGGER.info("FCM push successful for token: %s", token[:20] + "...")
+                        _LOGGER.info(
+                            "FCM push successful for token: %s", token[:20] + "..."
+                        )
             except Exception as exc:
                 _LOGGER.error("FCM push error: %s", exc)
 
-    def _resolve_image_url(self, image_url: str | None, full_url: bool = True) -> str | None:
+    def _resolve_image_url(
+        self, image_url: str | None, full_url: bool = True
+    ) -> str | None:
         if not image_url:
             return None
 
@@ -292,15 +311,15 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             return f"{image_url}{separator}{cache_buster}"
 
         # Handle local file paths
-        clean_path = image_url.lstrip('/')
-        
+        clean_path = image_url.lstrip("/")
+
         # Handle existing query strings in local paths
         if "?" in clean_path:
             base_path, query = clean_path.split("?", 1)
             encoded_path = f"{quote(base_path, safe='/')}?{query}"
             path_with_buster = f"{encoded_path}&{cache_buster}"
         else:
-            encoded_path = quote(clean_path, safe='/')
+            encoded_path = quote(clean_path, safe="/")
             path_with_buster = f"{encoded_path}?{cache_buster}"
 
         if full_url:
@@ -308,7 +327,7 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             if ha_url:
                 # Ensure no double slashes when joining
                 return f"{ha_url.rstrip('/')}/{path_with_buster}"
-        
+
         # Return as absolute path for local use (e.g. persistent notifications)
         return f"/{path_with_buster}"
 
@@ -322,7 +341,9 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             async with OasiraAPIClient(id_token=id_token) as client:
                 firebase_config = await client.get_firebase_config()
 
-            google_firebase_raw = firebase_config.get("Google_Firebase") if firebase_config else None
+            google_firebase_raw = (
+                firebase_config.get("Google_Firebase") if firebase_config else None
+            )
             if not google_firebase_raw:
                 _LOGGER.error("Missing Google_Firebase config from Oasira")
                 return None, None
@@ -393,14 +414,18 @@ async def async_setup_notification_platform(hass: HomeAssistant):
             "notify",
             "effortlesshome",
             handle_notify_service,
-            schema=vol.Schema({
-                vol.Required("message"): cv.string,
-                vol.Optional("title"): cv.string,
-                vol.Optional("data"): dict,
-            }),
+            schema=vol.Schema(
+                {
+                    vol.Required("message"): cv.string,
+                    vol.Optional("title"): cv.string,
+                    vol.Optional("data"): dict,
+                }
+            ),
         )
 
-        _LOGGER.info("✅ EffortlessHome notification service registered: notify.effortlesshome")
+        _LOGGER.info(
+            "✅ EffortlessHome notification service registered: notify.effortlesshome"
+        )
         return True
 
     except Exception as e:
@@ -410,10 +435,12 @@ async def async_setup_notification_platform(hass: HomeAssistant):
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up integration from a config entry."""
-    hass.data.setdefault(DOMAIN, {})   
+    hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["entry_id"] = entry.entry_id
 
-    token_store = storage.Store(hass, PUSH_TOKEN_STORAGE_VERSION, PUSH_TOKEN_STORAGE_KEY)
+    token_store = storage.Store(
+        hass, PUSH_TOKEN_STORAGE_VERSION, PUSH_TOKEN_STORAGE_KEY
+    )
     hass.data[DOMAIN]["token_store"] = token_store
     stored_tokens = await token_store.async_load() or []
     hass.data[DOMAIN]["notification_tokens"] = list(dict.fromkeys(stored_tokens))
@@ -449,7 +476,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Setup mobile_app integration with Firebase config from Oasira
             try:
                 from .mobile_app_config import setup_mobile_app_integration
-                mobile_app_success = await setup_mobile_app_integration(hass, api_client)
+
+                mobile_app_success = await setup_mobile_app_integration(
+                    hass, api_client
+                )
                 if mobile_app_success:
                     _LOGGER.info(
                         "✅ Firebase config retrieved from Oasira and stored for EffortlessHome services. "
@@ -462,7 +492,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         "This is optional and does not affect other features."
                     )
             except Exception as mobile_exc:
-                _LOGGER.warning("Could not setup mobile app integration: %s", mobile_exc, exc_info=True)
+                _LOGGER.warning(
+                    "Could not setup mobile app integration: %s",
+                    mobile_exc,
+                    exc_info=True,
+                )
 
             hass.data[DOMAIN] = {
                 "entry_id": entry.entry_id,
@@ -501,7 +535,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             }
         except OasiraAPIError as e:
             _LOGGER.error("Failed to fetch customer/system data: %s", e)
-            raise HomeAssistantError(f"Failed to fetch customer/system data: {e}") from e
+            if "401" in str(e):
+                _LOGGER.info("Token expired, requesting reauth")
+                await hass.config_entries.async_request_reauth(entry)
+                return False
+            raise HomeAssistantError(
+                f"Failed to fetch customer/system data: {e}"
+            ) from e
 
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
@@ -572,7 +612,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         handle_effortlesshome_location_update,
     )
 
-    _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)    
+    _LOGGER.info("[EffortlessHome] Webhook registered: %s", webhook_id)
 
     register_services(hass)
 
@@ -582,6 +622,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Create groups for motion sensors
     await grouper.create_sensor_groups()
     await grouper.create_security_sensor_group()
+
+    # Initialize the Siren Grouper
+    siren_grouper = SirenGrouper(hass)
+
+    # Create group for sirens
+    await siren_grouper.create_siren_group()
 
     # Removed deploy_latest_config(hass) from initialization. Now triggered by button entity.
     label_registry = lr.async_get(hass)
@@ -593,20 +639,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except ValueError:
             # Label already exists → ignore
             _LOGGER.info("Label already exists: %s", desired)
-    
+
     async def after_home_assistant_started(event):
         """Call this function after Home Assistant has started."""
         await loaddevicegroups(None)
 
-        #TODO: Update the link below with the actual add-on slug
-        #notify_create(
+        # TODO: Update the link below with the actual add-on slug
+        # notify_create(
         #    hass,
         #    title="EffortlessHome Add-on Required",
         #    message=(
         #        "The EffortlessHome integration needs the EffortlessHome Add-on. "
         #        "Click [here](https://my.home-assistant.io/redirect/supervisor_addon/?addon=<your_slug>) to install it."
         #    ),
-        #)
+        # )
 
     # Listen for the 'homeassistant_started' event
     hass.bus.async_listen_once(
@@ -617,11 +663,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async def refresh_firebase_token():
         """Periodically refresh the Firebase ID token."""
         refresh_token = entry.data.get("refresh_token")
-        
+
         if not refresh_token:
-            _LOGGER.warning("No refresh token available - cannot refresh Firebase token")
+            _LOGGER.warning(
+                "No refresh token available - cannot refresh Firebase token"
+            )
             return
-        
+
         while True:
             try:
                 _LOGGER.info("Refreshing Firebase ID token...")
@@ -635,7 +683,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 if new_id_token:
                     # Update the token in hass.data
                     hass.data[DOMAIN]["id_token"] = new_id_token
-                    hass.data[DOMAIN]["refresh_token"] = new_refresh_token or refresh_token
+                    hass.data[DOMAIN]["refresh_token"] = (
+                        new_refresh_token or refresh_token
+                    )
 
                     # Update the config entry data
                     hass.config_entries.async_update_entry(
@@ -644,7 +694,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                             **entry.data,
                             "id_token": new_id_token,
                             "refresh_token": new_refresh_token or refresh_token,
-                        }
+                        },
                     )
 
                     # Update the refresh token for next iteration
@@ -653,7 +703,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
                     _LOGGER.info("✅ Firebase ID token refreshed successfully")
                 else:
-                    _LOGGER.error("Failed to refresh Firebase token - no idToken in response")
+                    _LOGGER.error(
+                        "Failed to refresh Firebase token - no idToken in response"
+                    )
 
             except OasiraAPIError as e:
                 _LOGGER.error("Failed to refresh Firebase token: %s", e)
@@ -663,11 +715,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             finally:
                 # Wait 50 minutes before refreshing (tokens expire in 60 minutes)
                 await asyncio.sleep(50 * 60)
-    
+
     # Start the refresh task
     hass.async_create_task(refresh_firebase_token())
 
     return True
+
 
 def _deploy_latest_config_sync(hass: HomeAssistant):
     """Synchronous helper for deploying config."""
@@ -691,16 +744,20 @@ def _deploy_latest_config_sync(hass: HomeAssistant):
         shutil.copytree(source_themes_dir, target_themes_dir, dirs_exist_ok=True)
 
     if os.path.exists(source_blueprints_dir):
-        shutil.copytree(source_blueprints_dir, target_blueprints_dir, dirs_exist_ok=True)
+        shutil.copytree(
+            source_blueprints_dir, target_blueprints_dir, dirs_exist_ok=True
+        )
 
     if os.path.exists(source_dir):
         shutil.copytree(source_dir, target_dir, dirs_exist_ok=True)
+
 
 async def deploy_latest_config(hass: HomeAssistant):
     """Deploy latest: theme, cards, blueprints, etc."""
     _LOGGER.info("[EffortlessHome] Deploying latest configuration files...")
     await hass.async_add_executor_job(_deploy_latest_config_sync, hass)
     _LOGGER.info("[EffortlessHome] Configuration deployment complete.")
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
@@ -715,7 +772,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
             "light",
             "alarm_control_panel",
             "button",
-        ],        
+        ],
     )
 
     # Unregister the notify service
@@ -727,11 +784,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
 
     return True
 
+
 async def async_init(hass: HomeAssistant, entry: ConfigEntry, auto_area: AutoArea):
     """Initialize component."""
     await asyncio.sleep(5)  # wait for all area devices to be initialized
 
     return True
+
 
 async def add_label_to_entity(call: ServiceCall) -> None:
     """Add a label to an entity."""
@@ -758,29 +817,30 @@ async def add_label_to_entity(call: ServiceCall) -> None:
     ent_reg.async_update_entity(entity_id, labels=new_labels)
     _LOGGER.info(f"Added label '{label}' to entity '{entity_id}'")
 
+
 @callback
 def register_services(hass: HomeAssistant) -> None:
     """Register effortlesshome services."""
 
-    hass.services.async_register(
-        DOMAIN, "clean_motion_files", clean_motion_files
-    )
+    hass.services.async_register(DOMAIN, "clean_motion_files", clean_motion_files)
 
     # Register our service with Home Assistant.
     hass.services.async_register(DOMAIN, "create_event", create_event)
     hass.services.async_register(DOMAIN, "cancel_alarm", cancel_alarm)
     hass.services.async_register(DOMAIN, "get_alarm_status", get_alarm_status)
-    hass.services.async_register(
-        DOMAIN, "confirm_pending_alarm", confirm_pending_alarm
-    )
+    hass.services.async_register(DOMAIN, "confirm_pending_alarm", confirm_pending_alarm)
 
     hass.services.async_register(DOMAIN, "update_entity", update_entity)
 
     hass.services.async_register(DOMAIN, "create_alert", create_alert)
 
-    hass.services.async_register(DOMAIN, "deploy_latest_config", handle_deploy_latest_config)
-    
-    hass.services.async_register(DOMAIN, "get_firebase_config", handle_get_firebase_config)
+    hass.services.async_register(
+        DOMAIN, "deploy_latest_config", handle_deploy_latest_config
+    )
+
+    hass.services.async_register(
+        DOMAIN, "get_firebase_config", handle_get_firebase_config
+    )
 
     hass.services.async_register(
         DOMAIN,
@@ -790,6 +850,7 @@ def register_services(hass: HomeAssistant) -> None:
             {vol.Required("entity_id"): cv.entity_id, vol.Required("label"): cv.string}
         ),
     )
+
 
 async def update_entity(call):
     """Handle the service call."""
@@ -801,10 +862,12 @@ async def update_entity(call):
 
     ent_reg.async_update_entity(entity_id, area_id=new_area)
 
-async def loaddevicegroups(calldata) -> None:  
+
+async def loaddevicegroups(calldata) -> None:
     """Load device groups."""
     hass = HASSComponent.get_hass()
     await async_setup_devicegroup(hass)
+
 
 async def create_event(call: ServiceCall) -> None:
     """Create event."""
@@ -880,7 +943,9 @@ async def create_alert(call: ServiceCall) -> None:
     status = call.data.get("status")
 
     if not alert_type or not alert_description or not status:
-        _LOGGER.error("alert_type, alert_description, and status are required for create_alert service")
+        _LOGGER.error(
+            "alert_type, alert_description, and status are required for create_alert service"
+        )
         return
 
     alert_data = {
@@ -953,7 +1018,7 @@ async def confirmpendingalarm(calldata) -> None:
 async def clean_motion_files(call: ServiceCall) -> None:
     """Execute the shell command to delete old snapshots."""
     age = call.data.get("age", 30)
-    
+
     if not isinstance(age, int) or age < 1:
         _LOGGER.warning("Invalid age value %s, using default 30 days", age)
         age = 30
@@ -963,7 +1028,11 @@ async def clean_motion_files(call: ServiceCall) -> None:
     # Use subprocess to execute the shell command
     try:
         process = subprocess.run(
-            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+            command,
+            shell=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
         )
 
         if process.returncode == 0:
@@ -983,31 +1052,36 @@ async def cleanmotionfiles(calldata):
 async def handle_get_firebase_config(call: ServiceCall) -> None:
     """Handle the get_firebase_config service call."""
     hass = HASSComponent.get_hass()
-    
+
     try:
         # Get credentials from hass.data
         system_id = hass.data[DOMAIN].get("systemid")
         id_token = hass.data[DOMAIN].get("id_token")
-        
+
         if not system_id or not id_token:
             _LOGGER.error("System ID or ID token not found in configuration")
             notify_create(
                 hass,
                 "Firebase Config Error: System ID or ID token not found",
-                title="EffortlessHome"
+                title="EffortlessHome",
             )
             return
-        
+
         # Get Firebase config from Oasira
-        async with OasiraAPIClient(system_id=system_id, id_token=id_token) as api_client:
-            from .mobile_app_config import setup_mobile_app_config, generate_mobile_app_config_yaml
-            
+        async with OasiraAPIClient(
+            system_id=system_id, id_token=id_token
+        ) as api_client:
+            from .mobile_app_config import (
+                setup_mobile_app_config,
+                generate_mobile_app_config_yaml,
+            )
+
             mobile_app_config = await setup_mobile_app_config(hass, api_client)
-            
+
             if mobile_app_config:
                 # Generate YAML config for display
                 yaml_config = generate_mobile_app_config_yaml(mobile_app_config)
-                
+
                 # Create a persistent notification with the config
                 message = f"""
 Firebase Configuration retrieved from Oasira:
@@ -1021,28 +1095,25 @@ To enable mobile app notifications, add the above YAML to your configuration.yam
 
 Without this configuration, mobile app notifications will not work.
 """
-                notify_create(
-                    hass,
-                    message,
-                    title="Firebase Configuration"
-                )
-                
+                notify_create(hass, message, title="Firebase Configuration")
+
                 _LOGGER.info("Firebase config retrieved and displayed to user")
             else:
                 _LOGGER.error("Failed to retrieve Firebase config from Oasira")
                 notify_create(
                     hass,
                     "Failed to retrieve Firebase configuration from Oasira",
-                    title="Firebase Config Error"
+                    title="Firebase Config Error",
                 )
-                
+
     except Exception as e:
         _LOGGER.error(f"Error retrieving Firebase config: {e}", exc_info=True)
         notify_create(
             hass,
             f"Error retrieving Firebase config: {str(e)}",
-            title="Firebase Config Error"
+            title="Firebase Config Error",
         )
+
 
 async def handle_deploy_latest_config(call: ServiceCall) -> None:
     """Handle the service call."""
@@ -1050,13 +1121,15 @@ async def handle_deploy_latest_config(call: ServiceCall) -> None:
 
     await deploy_latest_config(hass)
 
-#sampledata
-#{
-#    email: 
-#    token: 
+
+# sampledata
+# {
+#    email:
+#    token:
 #    device_name: master_bedroom_tv
 #    platform: android
-#}
+# }
+
 
 async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
     """Handle incoming EffortlessHome Push Token webhook (device token)."""
@@ -1066,7 +1139,10 @@ async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
 
     try:
         data = await request.json()
-        _LOGGER.info("[EffortlessHome] 🔔 Push token payload: %s", {k: v if k != 'token' else f"{v[:20]}..." for k, v in data.items()})
+        _LOGGER.info(
+            "[EffortlessHome] 🔔 Push token payload: %s",
+            {k: v if k != "token" else f"{v[:20]}..." for k, v in data.items()},
+        )
     except Exception as e:
         _LOGGER.error("[EffortlessHome] ❌ Invalid JSON payload: %s", e)
         return web.Response(status=400, text="Invalid JSON")
@@ -1083,7 +1159,9 @@ async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
     )
 
     if not token:
-        _LOGGER.error("[EffortlessHome] ❌ Webhook called without required field (token).")
+        _LOGGER.error(
+            "[EffortlessHome] ❌ Webhook called without required field (token)."
+        )
         return web.Response(status=400, text="Missing token")
 
     domain_data = hass.data.setdefault(DOMAIN, {})
@@ -1104,7 +1182,9 @@ async def handle_effortlesshome_push_token_webhook(hass, webhook_id, request):
     else:
         _LOGGER.info("[EffortlessHome] Token already registered")
 
-    _LOGGER.info("[EffortlessHome] ✅ Push token registered successfully for %s", device_name)
+    _LOGGER.info(
+        "[EffortlessHome] ✅ Push token registered successfully for %s", device_name
+    )
     return web.json_response({"status": "success", "message": "Token registered"})
 
 
@@ -1126,7 +1206,9 @@ async def handle_effortlesshome_remove_push_token_webhook(hass, webhook_id, requ
 
     token = data.get("token")
     if not token:
-        _LOGGER.error("[EffortlessHome] ❌ Webhook called without required field (token).")
+        _LOGGER.error(
+            "[EffortlessHome] ❌ Webhook called without required field (token)."
+        )
         return web.Response(status=400, text="Missing token")
 
     domain_data = hass.data.setdefault(DOMAIN, {})
@@ -1144,7 +1226,7 @@ async def handle_effortlesshome_remove_push_token_webhook(hass, webhook_id, requ
     return web.json_response({"status": "success", "message": "Token not found"})
 
 
-#{
+# {
 #  "device_id": "unique_device_identifier",
 #  "device_name": "Samsung Galaxy S21",
 #  "latitude": 37.7749,
@@ -1161,7 +1243,7 @@ async def handle_effortlesshome_remove_push_token_webhook(hass, webhook_id, requ
 #    "version": "13",
 #    "sdk_int": 33
 #  }
-#}
+# }
 async def handle_effortlesshome_location_update(hass, webhook_id, request):
     """Register EffortlessHome location update service."""
 
@@ -1182,13 +1264,31 @@ async def handle_effortlesshome_location_update(hass, webhook_id, request):
     lon = data.get("longitude")
     accuracy = data.get("accuracy", 30.0)
 
-    _LOGGER.info("[EffortlessHome] 📍 Parsed data - device_id: %s, lat: %s, lon: %s, accuracy: %s", device_id, lat, lon, accuracy)
+    _LOGGER.info(
+        "[EffortlessHome] 📍 Parsed data - device_id: %s, lat: %s, lon: %s, accuracy: %s",
+        device_id,
+        lat,
+        lon,
+        accuracy,
+    )
 
     if not device_id or lat is None or lon is None:
-        _LOGGER.error("[EffortlessHome] ❌ Missing required fields - device_id: %s, lat: %s, lon: %s", device_id, lat, lon)
+        _LOGGER.error(
+            "[EffortlessHome] ❌ Missing required fields - device_id: %s, lat: %s, lon: %s",
+            device_id,
+            lat,
+            lon,
+        )
         return web.Response(status=400, text="Missing required fields")
 
-    device_id_new = device_id.lower().replace('@', '_').replace('.', '_').replace('-', '_').replace('{', '').replace('}', '')
+    device_id_new = (
+        device_id.lower()
+        .replace("@", "_")
+        .replace(".", "_")
+        .replace("-", "_")
+        .replace("{", "")
+        .replace("}", "")
+    )
     entity_id = f"device_tracker.{device_id_new}"
 
     domain_data = hass.data.setdefault(DOMAIN, {})
@@ -1218,25 +1318,25 @@ async def handle_effortlesshome_location_update(hass, webhook_id, request):
     # Update or create entity with immediate geofencing state determination
     # Calculate the state based on location coordinates right away
     state = "unknown"
-    
+
     try:
         # Try to get home coordinates for immediate state calculation
         home_coords = None
         system_data = hass.data.get(DOMAIN, {})
         address_json = system_data.get("address_json")
-        
+
         if address_json:
             if isinstance(address_json, str):
                 address_data = json.loads(address_json)
             else:
                 address_data = address_json
-            
+
             home_lat = address_data.get("latitude")
             home_lon = address_data.get("longitude")
-            
+
             if home_lat is not None and home_lon is not None:
                 home_coords = (float(home_lat), float(home_lon))
-        
+
         # Fallback to HA config coordinates
         if not home_coords:
             try:
@@ -1246,35 +1346,38 @@ async def handle_effortlesshome_location_update(hass, webhook_id, request):
                     home_coords = (float(home_lat), float(home_lon))
             except:
                 pass
-        
+
         # Calculate distance and determine state
         if home_coords:
             home_lat, home_lon = home_coords
-            
+
             # Earth's radius in meters
             R = 6371000
-            
+
             # Convert degrees to radians
             lat1_rad = math.radians(home_lat)
             lon1_rad = math.radians(home_lon)
             lat2_rad = math.radians(lat)
             lon2_rad = math.radians(lon)
-            
+
             # Haversine formula
             dlat = lat2_rad - lat1_rad
             dlon = lon2_rad - lon1_rad
-            
-            a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+
+            a = (
+                math.sin(dlat / 2) ** 2
+                + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2) ** 2
+            )
             c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-            
+
             distance = R * c
             radius = 100.0  # 100 meter radius
-            
+
             if distance <= radius:
                 state = "home"
             else:
                 state = "not_home"
-                
+
     except Exception as e:
         _LOGGER.debug("[EffortlessHome] Could not calculate geofence state: %s", e)
         state = "unknown"

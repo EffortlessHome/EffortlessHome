@@ -2,7 +2,14 @@ import logging
 import json
 import aiohttp
 import asyncio
-from homeassistant.components.notify import BaseNotificationService, ATTR_TITLE, ATTR_MESSAGE
+import time
+from google.auth import jwt
+from google.auth.crypt import rsa
+from homeassistant.components.notify import (
+    BaseNotificationService,
+    ATTR_TITLE,
+    ATTR_MESSAGE,
+)
 from homeassistant.helpers import storage
 
 _LOGGER = logging.getLogger(__name__)
@@ -10,7 +17,10 @@ _LOGGER = logging.getLogger(__name__)
 STORAGE_KEY = "effortlesshome_firebase_tokens"
 STORAGE_VERSION = 1
 
-FIREBASE_URL = "https://fcm.googleapis.com/v1/projects/effortlesshome-oauth/messages:send"
+FIREBASE_URL = (
+    "https://fcm.googleapis.com/v1/projects/effortlesshome-oauth/messages:send"
+)
+
 
 async def async_get_service(hass, config, discovery_info=None):
     service_account = hass.config.path(
@@ -23,6 +33,7 @@ async def async_get_service(hass, config, discovery_info=None):
     tokens = await store.async_load() or []
 
     return EffortlessHomeFirebaseNotifyService(hass, creds, tokens, store)
+
 
 class EffortlessHomeFirebaseNotifyService(BaseNotificationService):
     def __init__(self, hass, creds, tokens, store):
@@ -39,7 +50,10 @@ class EffortlessHomeFirebaseNotifyService(BaseNotificationService):
             return
 
         token = await self._get_access_token()
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
 
         for fcm_token in self.tokens:
             payload = {
@@ -49,17 +63,15 @@ class EffortlessHomeFirebaseNotifyService(BaseNotificationService):
                 }
             }
             async with aiohttp.ClientSession() as session:
-                async with session.post(FIREBASE_URL, headers=headers, json=payload) as resp:
+                async with session.post(
+                    FIREBASE_URL, headers=headers, json=payload
+                ) as resp:
                     if resp.status != 200:
                         text = await resp.text()
                         _LOGGER.error("Firebase push failed: %s", text)
 
     async def _get_access_token(self):
-        # Use OAuth2 JWT flow manually
-        import jwt
-        import time
-        import aiohttp
-
+        # Use OAuth2 JWT flow manually with google-auth signer
         now = int(time.time())
         payload = {
             "iss": self.creds["client_email"],
@@ -69,7 +81,9 @@ class EffortlessHomeFirebaseNotifyService(BaseNotificationService):
             "exp": now + 3600,
         }
 
-        assertion = jwt.encode(payload, self.creds["private_key"], algorithm="RS256")
+        signer = rsa.RSASigner.from_string(self.creds["private_key"])
+        assertion = jwt.encode(signer, payload)
+
         async with aiohttp.ClientSession() as session:
             async with session.post(
                 "https://oauth2.googleapis.com/token",

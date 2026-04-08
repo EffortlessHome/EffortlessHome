@@ -10,6 +10,7 @@ from .const import NAME, DOMAIN
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
+
 class MedicationTrackingSwitch(SwitchEntity, RestoreEntity):
     """Set up a medication tracking switch."""
 

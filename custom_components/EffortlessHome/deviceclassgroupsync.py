@@ -1,8 +1,6 @@
-import logging  # noqa: D100, EXE002
+import logging
 
-from homeassistant.components.group import (
-    DOMAIN as GROUP_DOMAIN,  # type: ignore  # noqa: PGH003
-)
+from homeassistant.components.group import DOMAIN as GROUP_DOMAIN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import async_get_platforms
 from homeassistant.helpers.event import async_track_state_change

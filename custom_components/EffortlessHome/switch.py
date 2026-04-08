@@ -35,6 +35,7 @@ SCAN_INTERVAL = timedelta(seconds=5)
 
 _LOGGER: logging.Logger = logging.getLogger(__package__)
 
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -68,7 +69,7 @@ class MedicalAlertAlarmSwitch(SwitchEntity, RestoreEntity):
     def __init__(self, name) -> None:
         """Initialize switch."""
         self._is_on: bool = False
-        self.name = name
+        self._attr_name = name
         self.entity_id = "switch." + name
 
     @property
@@ -83,7 +84,7 @@ class MedicalAlertAlarmSwitch(SwitchEntity, RestoreEntity):
     @cached_property
     def name(self) -> str | UndefinedType | None:
         """Return the name of the entity."""
-        return self.name
+        return self._attr_name
 
     @cached_property
     def device_class(self) -> SwitchDeviceClass | None:
@@ -102,7 +103,7 @@ class MedicalAlertAlarmSwitch(SwitchEntity, RestoreEntity):
         self.hass.add_job(
             self.hass.bus.async_fire,
             "medical_alert_switch_updated",
-            {"is_on": self._is_on}
+            {"is_on": self._is_on},
         )
 
     def turn_off(self, **kwargs):
@@ -112,7 +113,7 @@ class MedicalAlertAlarmSwitch(SwitchEntity, RestoreEntity):
         self.hass.add_job(
             self.hass.bus.async_fire,
             "medical_alert_switch_updated",
-            {"is_on": self._is_on}
+            {"is_on": self._is_on},
         )
 
     async def async_added_to_hass(self):
@@ -120,7 +121,8 @@ class MedicalAlertAlarmSwitch(SwitchEntity, RestoreEntity):
         await super().async_added_to_hass()
 
         if (last_state := await self.async_get_last_state()) is not None:
-            self._is_on = last_state.state == "on"        
+            self._is_on = last_state.state == "on"
+
 
 class MonitoringAlarmSwitch(SwitchEntity, RestoreEntity):
     """Set up a monitoring alert alarm switch."""
@@ -130,7 +132,7 @@ class MonitoringAlarmSwitch(SwitchEntity, RestoreEntity):
     def __init__(self, name) -> None:
         """Initialize switch."""
         self._is_on: bool = False
-        self.name = name
+        self._attr_name = name
 
     @property
     def device_info(self):
@@ -144,7 +146,7 @@ class MonitoringAlarmSwitch(SwitchEntity, RestoreEntity):
     @cached_property
     def name(self) -> str | UndefinedType | None:
         """Return the name of the entity."""
-        return self.name
+        return self._attr_name
 
     @property
     def unique_id(self) -> str:
@@ -168,7 +170,7 @@ class MonitoringAlarmSwitch(SwitchEntity, RestoreEntity):
         self.hass.add_job(
             self.hass.bus.async_fire,
             "monitoring_alarm_switch_updated",
-            {"is_on": self._is_on}
+            {"is_on": self._is_on},
         )
 
     def turn_off(self, **kwargs):
@@ -178,15 +180,16 @@ class MonitoringAlarmSwitch(SwitchEntity, RestoreEntity):
         self.hass.add_job(
             self.hass.bus.async_fire,
             "monitoring_alarm_switch_updated",
-            {"is_on": self._is_on}
-        )        
+            {"is_on": self._is_on},
+        )
 
     async def async_added_to_hass(self):
         """Restore previous state when entity is added."""
         await super().async_added_to_hass()
 
         if (last_state := await self.async_get_last_state()) is not None:
-            self._is_on = last_state.state == "on"        
+            self._is_on = last_state.state == "on"
+
 
 class PresenceSimulationSwitch(SwitchEntity, RestoreEntity):
     """Set up a presence simulation switch."""
@@ -197,7 +200,7 @@ class PresenceSimulationSwitch(SwitchEntity, RestoreEntity):
         """Initialize switch."""
         self._is_on: bool = False
         self.hass = hass
-        self.name = "Presence Simulation"
+        self._attr_name = "Presence Simulation"
         self.entity_id = "switch.presence_simulation"
 
     @property
@@ -212,7 +215,7 @@ class PresenceSimulationSwitch(SwitchEntity, RestoreEntity):
     @cached_property
     def name(self) -> str | UndefinedType | None:
         """Return the name of the entity."""
-        return self.name
+        return self._attr_name
 
     @cached_property
     def device_class(self) -> SwitchDeviceClass | None:
@@ -241,6 +244,7 @@ class PresenceSimulationSwitch(SwitchEntity, RestoreEntity):
         if (last_state := await self.async_get_last_state()) is not None:
             self._is_on = last_state.state == "on"
 
+
 class DisableMotionLightingSwitch(SwitchEntity, RestoreEntity):
     """Set up a motion lighting switch."""
 
@@ -249,7 +253,7 @@ class DisableMotionLightingSwitch(SwitchEntity, RestoreEntity):
     def __init__(self) -> None:
         """Initialize switch."""
         self._is_on: bool = False
-        self.name = "Disable Motion Lighting"
+        self._attr_name = "Disable Motion Lighting"
         self.entity_id = "switch.motion_lighting_disable"
 
     @property
@@ -264,7 +268,7 @@ class DisableMotionLightingSwitch(SwitchEntity, RestoreEntity):
     @cached_property
     def name(self) -> str | UndefinedType | None:
         """Return the name of the entity."""
-        return self.name
+        return self._attr_name
 
     @cached_property
     def device_class(self) -> SwitchDeviceClass | None:
@@ -292,5 +296,3 @@ class DisableMotionLightingSwitch(SwitchEntity, RestoreEntity):
 
         if (last_state := await self.async_get_last_state()) is not None:
             self._is_on = last_state.state == "on"
-
-        

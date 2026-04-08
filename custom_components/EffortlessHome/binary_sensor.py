@@ -5,12 +5,15 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 from homeassistant.components.binary_sensor import BinarySensorEntity
+from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.entity import EntityCategory
+from homeassistant.helpers.entity import Entity as HAEntity
 from homeassistant.helpers.area_registry import async_get as async_get_area_registry
 from homeassistant.helpers.restore_state import RestoreEntity
+from typing import Any
+from homeassistant.core import State
 
 from .alarm_common import async_cancelalarm, async_creatependingalarm
 from .const import ALARM_TYPE_MED_ALERT, ALARM_TYPE_MONITORING, DOMAIN, NAME
@@ -18,6 +21,7 @@ from .const import ALARM_TYPE_MED_ALERT, ALARM_TYPE_MONITORING, DOMAIN, NAME
 _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(minutes=5)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -51,15 +55,17 @@ def checkforlabel(labels, value_to_check) -> bool:
 
     # Check if the value is in parsed_labels
     if value_to_check in parsed_labels:
-        _LOGGER.debug(f"'{value_to_check}' is in parsed_labels. '{ parsed_labels }'")
+        _LOGGER.debug(f"'{value_to_check}' is in parsed_labels. '{parsed_labels}'")
         return True
-    _LOGGER.debug(f"'{value_to_check}' is not in parsed_labels. '{ parsed_labels }'")
+    _LOGGER.debug(f"'{value_to_check}' is not in parsed_labels. '{parsed_labels}'")
     return False
+
 
 async def updateEntity(area_id, state):
     sensor = ENTITY_REGISTRY.get(area_id)
     if sensor:
         sensor.set_state(state)
+
 
 class HASSComponent:
     """Hasscomponent."""
@@ -91,9 +97,9 @@ class SecurityMotionGroup(BinarySensorEntity, RestoreEntity):
         }
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass | None:
         """Return the device_class of the sensor."""
-        return "motion"
+        return BinarySensorDeviceClass.MOTION
 
     def __init__(self) -> None:
         """Initialize the sensor."""
@@ -115,9 +121,9 @@ class SecurityMotionGroup(BinarySensorEntity, RestoreEntity):
         return "mdi:motion-outline"
 
     @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
-        return self._state
+    def extra_state_attributes(self) -> dict:
+        """Return extra state attributes."""
+        return {"state": self._state}
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -132,6 +138,7 @@ class SecurityMotionGroup(BinarySensorEntity, RestoreEntity):
         else:
             sensor_state = "unknown"
 
+
 class WindowGroup(BinarySensorEntity, RestoreEntity):
     """Representation of a sensor."""
 
@@ -145,9 +152,9 @@ class WindowGroup(BinarySensorEntity, RestoreEntity):
         }
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass | None:
         """Return the device_class of the sensor."""
-        return "window"
+        return None
 
     def __init__(self) -> None:
         """Initialize the sensor."""
@@ -200,9 +207,9 @@ class DoorGroup(BinarySensorEntity, RestoreEntity):
         }
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass | None:
         """Return the device_class of the sensor."""
-        return "door"
+        return None
 
     def __init__(self) -> None:
         """Initialize the sensor."""
@@ -255,9 +262,9 @@ class CarbonMonoxideGroup(BinarySensorEntity, RestoreEntity):
         }
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass | None:
         """Return the device_class of the sensor."""
-        return "carbon_monoxide"
+        return None
 
     def __init__(self) -> None:
         """Initialize the sensor."""
@@ -310,9 +317,9 @@ class MoistureGroup(BinarySensorEntity, RestoreEntity):
         }
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass | None:
         """Return the device_class of the sensor."""
-        return "moisture"
+        return None
 
     def __init__(self) -> None:
         """Initialize the sensor."""
@@ -365,9 +372,9 @@ class SmokeGroup(BinarySensorEntity, RestoreEntity):
         }
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass | None:
         """Return the device_class of the sensor."""
-        return "smoke"
+        return None
 
     def __init__(self) -> None:
         """Initialize the sensor."""
@@ -421,7 +428,9 @@ class BinaryMedAlertSensor(BinarySensorEntity, RestoreEntity):
 
     async def async_added_to_hass(self):
         self.async_on_remove(
-            self.hass.bus.async_listen("medical_alert_switch_updated", self._handle_switch_event)
+            self.hass.bus.async_listen(
+                "medical_alert_switch_updated", self._handle_switch_event
+            )
         )
 
     async def _handle_switch_event(self, event):
@@ -429,9 +438,9 @@ class BinaryMedAlertSensor(BinarySensorEntity, RestoreEntity):
         self.async_write_ha_state()
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass | None:
         """Return the device_class of the sensor."""
-        return "safety"
+        return None
 
     def __init__(self) -> None:
         """Initialize the sensor."""
@@ -492,18 +501,19 @@ class MonitoringAlarm(BinarySensorEntity, RestoreEntity):
 
     async def async_added_to_hass(self):
         self.async_on_remove(
-            self.hass.bus.async_listen("monitoring_alarm_switch_updated", self._handle_switch_event)
+            self.hass.bus.async_listen(
+                "monitoring_alarm_switch_updated", self._handle_switch_event
+            )
         )
 
     async def _handle_switch_event(self, event):
         self._state = "on" if event.data["is_on"] else "off"
         self.async_write_ha_state()
 
-
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass | None:
         """Return the device_class of the sensor."""
-        return "safety"
+        return None
 
     def __init__(self) -> None:
         """Initialize the sensor."""
@@ -543,9 +553,7 @@ class MonitoringAlarm(BinarySensorEntity, RestoreEntity):
         self._state = switch_state.state
 
         if turnOn:
-            await async_creatependingalarm(
-                self.hass, ALARM_TYPE_MONITORING, None
-            )
+            await async_creatependingalarm(self.hass, ALARM_TYPE_MONITORING, None)
         elif turnOff:
             hass = HASSComponent.get_hass()
             await async_cancelalarm(hass)
@@ -565,7 +573,9 @@ class SleepingSensor(BinarySensorEntity, RestoreEntity):
 
     async def async_added_to_hass(self):
         self.async_on_remove(
-            self.hass.bus.async_listen("sleeping_switch_updated", self._handle_switch_event)
+            self.hass.bus.async_listen(
+                "sleeping_switch_updated", self._handle_switch_event
+            )
         )
 
     async def _handle_switch_event(self, event):
@@ -637,16 +647,24 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
         last_state = await self.async_get_last_state()
         if last_state is not None and last_state.state is not None:
             self._state = last_state.state
-            _LOGGER.debug(f"[SomeoneHomeSensor] Restored state to '{self._state}' after restart.")
+            _LOGGER.debug(
+                f"[SomeoneHomeSensor] Restored state to '{self._state}' after restart."
+            )
         else:
-            _LOGGER.debug("[SomeoneHomeSensor] No previous state found, using default 'off'.")
+            _LOGGER.debug(
+                "[SomeoneHomeSensor] No previous state found, using default 'off'."
+            )
         self.async_on_remove(
-            self.hass.bus.async_listen("sleeping_switch_updated", self._handle_switch_event)
+            self.hass.bus.async_listen(
+                "sleeping_switch_updated", self._handle_switch_event
+            )
         )
         _LOGGER.debug("[SomeoneHomeSensor] Added to hass, registering event listener.")
         try:
             self.async_on_remove(
-                self.hass.bus.async_listen("sleeping_switch_updated", self._handle_switch_event)
+                self.hass.bus.async_listen(
+                    "sleeping_switch_updated", self._handle_switch_event
+                )
             )
         except Exception as e:
             _LOGGER.error(f"[SomeoneHomeSensor] Error registering event listener: {e}")
@@ -688,7 +706,7 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
             _LOGGER.error(f"[SomeoneHomeSensor] Error in set_state: {e}")
 
     @property
-    def state(self): 
+    def state(self):
         """Return the state of the sensor."""
         return self._state
 
@@ -696,37 +714,59 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
         """Fetch new state data for the sensor, with detailed debug logging."""
         try:
             home = 0
-            _LOGGER.debug("[SomeoneHomeSensor][update] Starting update. Initial home count: 0")
+            _LOGGER.debug(
+                "[SomeoneHomeSensor][update] Starting update. Initial home count: 0"
+            )
             for entity_id in self.hass.states.entity_ids("person"):
                 try:
                     state = self.hass.states.get(entity_id)
-                    _LOGGER.debug(f"[SomeoneHomeSensor][update] Checking person {entity_id}: state={getattr(state, 'state', None)}")
+                    _LOGGER.debug(
+                        f"[SomeoneHomeSensor][update] Checking person {entity_id}: state={getattr(state, 'state', None)}"
+                    )
                     if state and state.state == "home":
                         home += 1
-                        _LOGGER.debug(f"[SomeoneHomeSensor][update] {entity_id} is home. Incremented home count: {home}")
+                        _LOGGER.debug(
+                            f"[SomeoneHomeSensor][update] {entity_id} is home. Incremented home count: {home}"
+                        )
                 except Exception as e:
-                    _LOGGER.error(f"[SomeoneHomeSensor][update] Error checking person {entity_id}: {e}")
+                    _LOGGER.error(
+                        f"[SomeoneHomeSensor][update] Error checking person {entity_id}: {e}"
+                    )
 
             entity_id = "group.security_motion_sensors_group"
             try:
                 motion_sensor_state = self.hass.states.get(entity_id)
-                motion_sensor_state_val = motion_sensor_state.state if motion_sensor_state is not None else "Unknown"
-                _LOGGER.debug(f"[SomeoneHomeSensor][update] Motion sensor group state: {motion_sensor_state_val}")
+                motion_sensor_state_val = (
+                    motion_sensor_state.state
+                    if motion_sensor_state is not None
+                    else "Unknown"
+                )
+                _LOGGER.debug(
+                    f"[SomeoneHomeSensor][update] Motion sensor group state: {motion_sensor_state_val}"
+                )
             except Exception as e:
-                _LOGGER.error(f"[SomeoneHomeSensor][update] Error getting motion sensor group state: {e}")
+                _LOGGER.error(
+                    f"[SomeoneHomeSensor][update] Error getting motion sensor group state: {e}"
+                )
                 motion_sensor_state_val = "Unknown"
 
-            if (home > 0 or (isinstance(motion_sensor_state_val, str) and motion_sensor_state_val.lower() == "on")):
+            if home > 0 or (
+                isinstance(motion_sensor_state_val, str)
+                and motion_sensor_state_val.lower() == "on"
+            ):
                 prev_state = self._state
                 self._state = "on"
-                _LOGGER.debug(f"[SomeoneHomeSensor][update] Someone is home or motion detected. State changed from {prev_state} to 'on'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
+                _LOGGER.debug(
+                    f"[SomeoneHomeSensor][update] Someone is home or motion detected. State changed from {prev_state} to 'on'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})"
+                )
             else:
                 prev_state = self._state
                 self._state = "off"
-                _LOGGER.debug(f"[SomeoneHomeSensor][update] No one home and no motion. State changed from {prev_state} to 'off'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})")
+                _LOGGER.debug(
+                    f"[SomeoneHomeSensor][update] No one home and no motion. State changed from {prev_state} to 'off'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})"
+                )
         except Exception as e:
             _LOGGER.error(f"[SomeoneHomeSensor][update] Error in update: {e}")
-
 
 
 class SmartApplianceSensor(BinarySensorEntity, RestoreEntity):
@@ -752,9 +792,9 @@ class SmartApplianceSensor(BinarySensorEntity, RestoreEntity):
         return self._name
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> BinarySensorDeviceClass | None:
         """Return the device_class of the sensor."""
-        return "running"
+        return None
 
     @property
     def unique_id(self) -> str:
@@ -789,6 +829,7 @@ class SmartApplianceSensor(BinarySensorEntity, RestoreEntity):
         else:
             _LOGGER.info(f"The state of {entity_id} cannnot be determined")
             self._state = "off"
+
 
 class InBedSensor(BinarySensorEntity, RestoreEntity):
     @property

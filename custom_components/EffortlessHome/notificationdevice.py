@@ -14,7 +14,9 @@ _LOGGER = logging.getLogger(__name__)
 class effortlesshomenotificationdevice(RestoreEntity):
     """Entity representing a push notification device (phone, tablet, etc.)."""
 
-    def __init__(self, hass: Optional[HomeAssistant], token: str, name: str, platform: str):
+    def __init__(
+        self, hass: Optional[HomeAssistant], token: str, name: str, platform: str
+    ):
         self.hass = hass
         self._attr_unique_id = name
         self._attr_name = name

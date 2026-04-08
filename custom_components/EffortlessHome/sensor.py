@@ -39,6 +39,7 @@ from .const import DOMAIN, NAME
 
 _LOGGER = logging.getLogger(__name__)
 
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -57,25 +58,13 @@ async def async_setup_entry(
     async_add_entities([HighTemperatureTomorrowSensor()])
 
     async_add_entities(
-        [
-            ConfigSensor(
-                "DaysHistoryToKeep", hass.data[DOMAIN]["DaysHistoryToKeep"]
-            )
-        ]
+        [ConfigSensor("DaysHistoryToKeep", hass.data[DOMAIN]["DaysHistoryToKeep"])]
     )
     async_add_entities(
-        [
-            ConfigSensor(
-                "LowTemperature", hass.data[DOMAIN]["LowTemperatureWarning"]
-            )
-        ]
+        [ConfigSensor("LowTemperature", hass.data[DOMAIN]["LowTemperatureWarning"])]
     )
     async_add_entities(
-        [
-            ConfigSensor(
-                "HighTemperature", hass.data[DOMAIN]["HighTemperatureWarning"]
-            )
-        ]
+        [ConfigSensor("HighTemperature", hass.data[DOMAIN]["HighTemperatureWarning"])]
     )
     async_add_entities(
         [ConfigSensor("LowHumidity", hass.data[DOMAIN]["LowHumidityWarning"])]
@@ -87,15 +76,13 @@ async def async_setup_entry(
     persons = hass.data.get(DOMAIN, {}).get("persons", [])
     for person in persons:
         async_add_entities([person])
-    
+
     powerentities = []
 
     entity_registry = er.async_get(hass)
     all_entities = entity_registry.entities.values()
 
-    device_data = hass.states.get(
-        DOMAIN +".virtualpowerentities"
-    )
+    device_data = hass.states.get(DOMAIN + ".virtualpowerentities")
 
     if device_data is not None:
         for entry in device_data:
@@ -111,9 +98,7 @@ async def async_setup_entry(
                     )
                     powerentities.append(virtual_sensor)
 
-    device_data = hass.states.get(
-        DOMAIN +".virtualdevices"
-    )
+    device_data = hass.states.get(DOMAIN + ".virtualdevices")
 
     if device_data is not None:
         for entry in device_data:
@@ -125,12 +110,14 @@ async def async_setup_entry(
     async_add_entities(powerentities)
     async_add_entities([TotalEnergySensor(hass)])
 
+
 async def _load_virtual_devices(hass, file_path):
     def read_file():
         with open(file_path, "r") as f:
             return json.load(f)
 
     return await hass.async_add_executor_job(read_file)
+
 
 class AlarmIDSensor(SensorEntity, RestoreEntity):
     """Representation of a sensor."""
@@ -177,6 +164,7 @@ class AlarmIDSensor(SensorEntity, RestoreEntity):
         except:
             self._state = ""
 
+
 class AlarmCreateMessageSensor(SensorEntity, RestoreEntity):
     """Representation of a sensor."""
 
@@ -222,6 +210,7 @@ class AlarmCreateMessageSensor(SensorEntity, RestoreEntity):
             self._state = self.hass.data[DOMAIN]["alarmcreatemessage"]
         except:
             self._state = ""
+
 
 class AlarmOwnerIDSensor(SensorEntity, RestoreEntity):
     """Representation of a sensor."""
@@ -760,7 +749,9 @@ class eh_person(SensorEntity, RestoreEntity):
         self.hass = hass
         self._email = email
         self._attr_name = email
-        self._attr_unique_id = f"effortlesshome_person_{email.lower().replace('@', '_').replace('.', '_')}"
+        self._attr_unique_id = (
+            f"effortlesshome_person_{email.lower().replace('@', '_').replace('.', '_')}"
+        )
         self._attr_icon = "mdi:account"
         self._attr_should_poll = False
 
@@ -811,13 +802,17 @@ class eh_person(SensorEntity, RestoreEntity):
     async def async_set_local_tracker(self, entity_id: str):
         """Link a local device_tracker entity."""
         self._local_tracker_entity_id = entity_id
-        _LOGGER.info("[eh_person] Linked local tracker for %s: %s", self._email, entity_id)
+        _LOGGER.info(
+            "[eh_person] Linked local tracker for %s: %s", self._email, entity_id
+        )
         await self.async_update_ha_state()
 
     async def async_set_remote_tracker(self, entity_id: str):
         """Link a remote (EffortlessHome cloud) device_tracker entity."""
         self._remote_tracker_entity_id = entity_id
-        _LOGGER.info("[eh_person] Linked remote tracker for %s: %s", self._email, entity_id)
+        _LOGGER.info(
+            "[eh_person] Linked remote tracker for %s: %s", self._email, entity_id
+        )
         await self.async_update_ha_state()
 
     async def async_set_notification_devices(
@@ -829,15 +824,29 @@ class eh_person(SensorEntity, RestoreEntity):
             return
 
         existing = next(
-            (d for d in self._notification_devices if d.unique_id == f"effortlesshome_notify_{device_name}"),
+            (
+                d
+                for d in self._notification_devices
+                if d.unique_id == f"effortlesshome_notify_{device_name}"
+            ),
             None,
         )
         if existing:
-            _LOGGER.info("[eh_person] Notification device %s already exists for %s", token, self._email)
+            _LOGGER.info(
+                "[eh_person] Notification device %s already exists for %s",
+                token,
+                self._email,
+            )
         else:
-            device = effortlesshomenotificationdevice(self.hass, token, device_name, platform_name)
+            device = effortlesshomenotificationdevice(
+                self.hass, token, device_name, platform_name
+            )
             self._notification_devices.append(device)
-            _LOGGER.info("[eh_person] Added notification device for %s: %s", self._email, platform_name)
+            _LOGGER.info(
+                "[eh_person] Added notification device for %s: %s",
+                self._email,
+                platform_name,
+            )
             await self.async_update_ha_state()
 
     async def async_added_to_hass(self):
@@ -852,7 +861,9 @@ class eh_person(SensorEntity, RestoreEntity):
             restored_devices = attrs.get("notification_devices", [])
             if restored_devices:
                 self._notification_devices = [
-                    effortlesshomenotificationdevice(self.hass, None, dev_id, "restored")
+                    effortlesshomenotificationdevice(
+                        self.hass, None, dev_id, "restored"
+                    )
                     for dev_id in restored_devices
                 ]
 

@@ -64,7 +64,10 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from . import GoogleGenerativeAIConfigEntry
+    from homeassistant.config_entries import ConfigEntry as GoogleGenerativeAIConfigEntry
+else:
+    # Use a stub for runtime when the actual type is not available
+    GoogleGenerativeAIConfigEntry = None
 
 # Max number of back and forth with the LLM to generate a response
 MAX_TOOL_ITERATIONS = 10
