@@ -160,6 +160,7 @@ Easy area and label management — no YAML required.
 
 Add the following configuration to your Home Assistant configuration.yaml file:
 
+```yaml
 http:
   use_x_forwarded_for: true
   trusted_proxies:
@@ -186,6 +187,7 @@ panel_custom:
 - name: effortlesshome-label-panel
   url_path: effortlesshome-label-panel
   module_url: /local/effortlesshome/label-panel.js
+```
 
 After adding the configuration, restart Home Assistant for changes to take effect.
 
