@@ -131,15 +131,41 @@ Easy area and label management — no YAML required.
 
 ## 🚀 Quick Start
 
-### Install via HACS (Recommended)
+## Installation
 
-```
-1. Open HACS in Home Assistant
-2. Add this repo as a custom repository
+### HACS Installation (Recommended)
+
+1. Open HACS in your Home Assistant instance
+2. Add this Github Repo as a custom source
 3. Search for "EffortlessHome"
-4. Click Download → Restart Home Assistant
-5. Add integration via Settings > Devices & Services
-```
+4. Click Install
+5. Restart Home Assistant
+
+### Manual Installation
+
+1. Copy the `effortlesshome` directory to your `custom_components` folder
+2. Restart Home Assistant
+3. Add the integration via Configuration > Integrations > Add Integration > EffortlessHome
+
+## Configuration
+
+### Initial Setup
+
+1. After installation, go to Configuration > Integrations
+2. Click the "+" button and search for "EffortlessHome"
+3. Enter your EffortlessHome account credentials
+4. Select the system you want to configure (if you have multiple systems)
+
+### Required Information
+
+- **Email**: Your EffortlessHome account email
+- **Password**: Your EffortlessHome account password
+
+### Optional Configuration
+
+After initial setup, you can configure additional options:
+
+- **Debug Mode**: Enable debug logging for troubleshooting
 
 📖 **Full setup guide:** [effortlesshome.co/getstarted](https://www.effortlesshome.co/getstarted/)
 
@@ -180,9 +206,9 @@ Easy area and label management — no YAML required.
 
 | Resource | Link |
 |---|---|
-| 📖 Documentation | [effortlesshome.co/get-started](https://www.effortlesshome.co/get-started/) |
+| 📖 Documentation | [effortlesshome.co/get-started](https://www.effortlesshome.co/getstarted/) |
 | 🐛 Report Issues | [GitHub Issues](https://github.com/effortlesshome/effortlesshome/issues) |
-| 🌐 Website | [effortlesshome.co](https://effortlesshome.co) |
+| 🌐 Website | [effortlesshome.co](https://www.effortlesshome.co) |
 
 ---
 
@@ -192,7 +218,7 @@ Easy area and label management — no YAML required.
 
 [![Get Early Access](https://img.shields.io/badge/🚀_Get_Early_Access-Sign_Up_Now-F97316?style=for-the-badge)](https://www.effortlesshome.co/#cta)
 
-**Join hundreds of Home Assistant users who stopped configuring and started living.**
+**Join other Home Assistant users who stopped configuring and started living.**
 
 ⭐ **Star this repo** to follow updates and show your support!
 
