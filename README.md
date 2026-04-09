@@ -174,19 +174,19 @@ homeassistant:
     - /config/www/effortlesshome
 
 panel_custom:
-- name: effortlesshome-config-panel
-  sidebar_title: EffortlessHome Config
-  sidebar_icon: mdi:alpha-e-box-outline
-  url_path: effortlesshome-config-panel
-  module_url: /local/effortlesshome/config-panel.js
+  - name: effortlesshome-config-panel
+    sidebar_title: EffortlessHome Config
+    sidebar_icon: mdi:alpha-e-box-outline
+    url_path: effortlesshome-config-panel
+    module_url: /local/effortlesshome/config-panel.js
 
-- name: effortlesshome-area-panel
-  url_path: effortlesshome-area-panel
-  module_url: /local/effortlesshome/area-panel.js
+  - name: effortlesshome-area-panel
+    url_path: effortlesshome-area-panel
+    module_url: /local/effortlesshome/area-panel.js
 
-- name: effortlesshome-label-panel
-  url_path: effortlesshome-label-panel
-  module_url: /local/effortlesshome/label-panel.js
+  - name: effortlesshome-label-panel
+    url_path: effortlesshome-label-panel
+    module_url: /local/effortlesshome/label-panel.js
 ```
 
 After adding the configuration, restart Home Assistant for changes to take effect.
