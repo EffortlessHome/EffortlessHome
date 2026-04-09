@@ -156,6 +156,39 @@ Easy area and label management — no YAML required.
 3. Enter your EffortlessHome account credentials
 4. Select the system you want to configure (if you have multiple systems)
 
+### Configuration.yaml changes
+
+Add the following configuration to your Home Assistant configuration.yaml file:
+
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 192.168.1.0/24 (replace with your local network range)
+  cors_allowed_origins:
+    - https://dash.effortlesshome.co
+
+homeassistant:
+  allowlist_external_dirs:
+    - /media
+    - /config/www/effortlesshome
+
+panel_custom:
+- name: effortlesshome-config-panel
+  sidebar_title: EffortlessHome Config
+  sidebar_icon: mdi:alpha-e-box-outline
+  url_path: effortlesshome-config-panel
+  module_url: /local/effortlesshome/config-panel.js
+
+- name: effortlesshome-area-panel
+  url_path: effortlesshome-area-panel
+  module_url: /local/effortlesshome/area-panel.js
+
+- name: effortlesshome-label-panel
+  url_path: effortlesshome-label-panel
+  module_url: /local/effortlesshome/label-panel.js
+
+After adding the configuration, restart Home Assistant for changes to take effect.
+
 ### Required Information
 
 - **Email**: Your EffortlessHome account email
@@ -163,9 +196,6 @@ Easy area and label management — no YAML required.
 
 ### Optional Configuration
 
-After initial setup, you can configure additional options:
-
-- **Debug Mode**: Enable debug logging for troubleshooting
 
 📖 **Full setup guide:** [effortlesshome.co/getstarted](https://www.effortlesshome.co/getstarted/)
 
