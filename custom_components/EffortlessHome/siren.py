@@ -1,7 +1,8 @@
 import logging  # noqa: D100, EXE002, N999
 
+from functools import cached_property
 from homeassistant.helpers import entity_registry
-
+from .const import DOMAIN, NAME
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = "siren_groups"
@@ -13,7 +14,22 @@ class SirenGrouper:
     def __init__(self, hass) -> None:
         """Initialize the siren grouper."""
         self.hass = hass
+        self._attr_name = "Siren Grouper"
         _LOGGER.debug("[SirenGrouper] Initialized with hass object.")
+
+    @property
+    def device_info(self):
+        """Return information about the device."""
+        return {
+            "identifiers": {(DOMAIN, NAME)},
+            "name": NAME,
+            "manufacturer": NAME,
+        }
+
+    @cached_property
+    def name(self) -> str | UndefinedType | None:
+        """Return the name of the entity."""
+        return self._attr_name
 
     async def create_siren_group(self) -> None:
         """Create a group of all sirens."""

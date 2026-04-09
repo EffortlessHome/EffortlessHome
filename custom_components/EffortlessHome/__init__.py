@@ -260,7 +260,6 @@ class EffortlessHomeNotificationService(BaseNotificationService):
             if image_url:
                 # Enhanced image handling for better native notification support
                 payload["message"]["notification"]["image"] = image_url
-                payload["message"]["fcm_options"] = {"image": image_url}
                 payload["message"]["android"] = {
                     "notification": {
                         "image": image_url,
@@ -290,6 +289,27 @@ class EffortlessHomeNotificationService(BaseNotificationService):
                     if resp.status != 200:
                         text = await resp.text()
                         _LOGGER.error("FCM push failed: %s", text)
+                        # Check for UNREGISTERED token and remove it
+                        try:
+                            error_data = json.loads(text)
+                            if (
+                                error_data.get("error", {}).get("details") and
+                                any(
+                                    detail.get("errorCode") == "UNREGISTERED"
+                                    for detail in error_data["error"]["details"]
+                                    if detail.get("@type") == "type.googleapis.com/google.firebase.fcm.v1.FcmError"
+                                )
+                            ):
+                                _LOGGER.warning("Removing unregistered FCM token: %s", token[:20] + "...")
+                                domain_data = self.hass.data.get(DOMAIN, {})
+                                tokens_list = domain_data.get("notification_tokens", [])
+                                if token in tokens_list:
+                                    tokens_list.remove(token)
+                                    token_store = domain_data.get("token_store")
+                                    if token_store is not None:
+                                        await token_store.async_save(tokens_list)
+                        except json.JSONDecodeError:
+                            pass  # Not JSON, ignore
                     else:
                         _LOGGER.info(
                             "FCM push successful for token: %s", token[:20] + "..."
@@ -537,7 +557,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _LOGGER.error("Failed to fetch customer/system data: %s", e)
             if "401" in str(e):
                 _LOGGER.info("Token expired, requesting reauth")
-                await hass.config_entries.async_request_reauth(entry)
+                await hass.config_entries.async_request_reauth(hass, entry)
                 return False
             raise HomeAssistantError(
                 f"Failed to fetch customer/system data: {e}"
