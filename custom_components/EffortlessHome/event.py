@@ -1,8 +1,9 @@
 # fire events in HA for use with automations  # noqa: EXE002
+"""Event handler for EffortlessHome."""
 
 import logging
 
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from . import const
@@ -11,7 +12,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class EventHandler:
-    def __init__(self, hass) -> None:
+    """Handle events in EffortlessHome."""
+
+    def __init__(self, hass: HomeAssistant) -> None:
         """Class constructor."""
         self.hass = hass
         self._subscription = async_dispatcher_connect(
@@ -48,7 +51,7 @@ class EventHandler:
                 reason=reasons[event],
             )
             if "open_sensors" in data:
-                data["sensors"] = list(data["open_sensors"].keys())  # type: ignore
+                data["sensors"] = list(data["open_sensors"].keys())
                 del data["open_sensors"]
 
             self.hass.bus.async_fire("failed_to_arm", data)
@@ -56,7 +59,7 @@ class EventHandler:
         elif event in [const.EVENT_ARM, const.EVENT_DISARM]:
             data = dict(**args, area_id=area_id, action=event)
             if "arm_mode" in data:
-                data["mode"] = const.STATE_TO_ARM_MODE[data["arm_mode"]]  # type: ignore[attr-defined]
+                data["mode"] = const.STATE_TO_ARM_MODE[data["arm_mode"]]
                 del data["arm_mode"]
 
             self.hass.bus.async_fire("command_success", data)

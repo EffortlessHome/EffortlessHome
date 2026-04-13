@@ -2,40 +2,36 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
-import json
 from typing import Optional, List
+
+from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.sun import get_astral_event_date
-from homeassistant.util import dt as dt_util
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import async_get_platforms
-from homeassistant.helpers.event import async_track_state_change
-from homeassistant.helpers.entity import async_generate_entity_id
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import async_get as async_get_dev_reg
-
+from homeassistant.helpers.entity import async_generate_entity_id
+from homeassistant.helpers.entity_platform import (
+    AddEntitiesCallback,
+    async_get_platforms,
+)
+from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.helpers.sun import get_astral_event_date
+from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, NAME
 from .notificationdevice import effortlesshomenotificationdevice
-
+from .personsensor import eh_personSensor
 from .virtualpowersensor import (
     VirtualPowerSensor,
     VirtualPowerSensorAlwaysOn,
     FakeDeviceVirtualPowerSensor,
     TotalEnergySensor,
 )
-
-from .personsensor import eh_personSensor
-
-from .const import DOMAIN, NAME
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,28 +80,38 @@ async def async_setup_entry(
 
     device_data = hass.states.get(DOMAIN + ".virtualpowerentities")
 
-    if device_data is not None:
-        for entry in device_data:
-            for entity in all_entities:
-                if entity.entity_id == entry["entity_id"]:
-                    _LOGGER.debug(
-                        "Adding virtual device: %s with wattage: %s",
-                        entry["powersensorname"],
-                        entry["wattage"],
-                    )
-                    virtual_sensor = VirtualPowerSensor(
-                        hass, entry["entity_id"], entry["wattage"]
-                    )
-                    powerentities.append(virtual_sensor)
+    if device_data is not None and hasattr(device_data, 'state'):
+        try:
+            device_data_value = json.loads(device_data.state)
+            if isinstance(device_data_value, list):
+                for entry in device_data_value:
+                    for entity in all_entities:
+                        if entity.entity_id == entry["entity_id"]:
+                            _LOGGER.debug(
+                                "Adding virtual device: %s with wattage: %s",
+                                entry["powersensorname"],
+                                entry["wattage"],
+                            )
+                            virtual_sensor = VirtualPowerSensor(
+                                hass, entry["entity_id"], entry["wattage"]
+                            )
+                            powerentities.append(virtual_sensor)
+        except (json.JSONDecodeError, ValueError):
+            _LOGGER.warning("Invalid virtualpowerentities state format")
 
     device_data = hass.states.get(DOMAIN + ".virtualdevices")
 
-    if device_data is not None:
-        for entry in device_data:
-            name = entry["name"]
-            wattage = entry["wattage"]
-            _LOGGER.debug("Adding virtual device: %s with wattage: %s", name, wattage)
-            powerentities.append(VirtualPowerSensorAlwaysOn(hass, name, wattage))
+    if device_data is not None and hasattr(device_data, 'state'):
+        try:
+            device_data_value = json.loads(device_data.state)
+            if isinstance(device_data_value, list):
+                for entry in device_data_value:
+                    name = entry["name"]
+                    wattage = entry["wattage"]
+                    _LOGGER.debug("Adding virtual device: %s with wattage: %s", name, wattage)
+                    powerentities.append(VirtualPowerSensor(hass, name, wattage))
+        except (json.JSONDecodeError, ValueError):
+            _LOGGER.warning("Invalid virtualdevices state format")
 
     async_add_entities(powerentities)
     async_add_entities([TotalEnergySensor(hass)])
@@ -151,8 +157,8 @@ class AlarmIDSensor(SensorEntity, RestoreEntity):
         return "mdi:alarm-light-outline"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     def update(self) -> None:
@@ -161,7 +167,7 @@ class AlarmIDSensor(SensorEntity, RestoreEntity):
         """
         try:
             self._state = self.hass.data[DOMAIN]["alarm_id"]
-        except:
+        except KeyError:
             self._state = ""
 
 
@@ -197,8 +203,8 @@ class AlarmCreateMessageSensor(SensorEntity, RestoreEntity):
         return "mdi:alarm-light-outline"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     def update(self) -> None:
@@ -208,7 +214,7 @@ class AlarmCreateMessageSensor(SensorEntity, RestoreEntity):
 
         try:
             self._state = self.hass.data[DOMAIN]["alarmcreatemessage"]
-        except:
+        except KeyError:
             self._state = ""
 
 
@@ -244,8 +250,8 @@ class AlarmOwnerIDSensor(SensorEntity, RestoreEntity):
         return "mdi:shield-moon-outline"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     def update(self) -> None:
@@ -256,7 +262,7 @@ class AlarmOwnerIDSensor(SensorEntity, RestoreEntity):
 
         try:
             self._state = self.hass.data[DOMAIN]["alarmownerid"]
-        except:
+        except KeyError:
             self._state = ""
 
 
@@ -292,8 +298,8 @@ class AlarmStatusSensor(SensorEntity, RestoreEntity):
         return "mdi:alarm-light-outline"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     def update(self) -> None:
@@ -303,7 +309,7 @@ class AlarmStatusSensor(SensorEntity, RestoreEntity):
         """
         try:
             self._state = self.hass.data[DOMAIN]["alarmstatus"]
-        except:
+        except KeyError:
             self._state = ""
 
 
@@ -339,8 +345,8 @@ class AlarmLastEventSensor(SensorEntity, RestoreEntity):
         return "mdi:alarm-light-outline"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     def update(self) -> None:
@@ -351,7 +357,7 @@ class AlarmLastEventSensor(SensorEntity, RestoreEntity):
 
         try:
             self._state = self.hass.data[DOMAIN]["alarmlasteventtype"]
-        except:
+        except KeyError:
             self._state = ""
 
 
@@ -387,8 +393,8 @@ class AverageHumiditySensor(SensorEntity, RestoreEntity):
         return "mdi:cloud-percent-outline"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     def update(self) -> None:
@@ -434,7 +440,7 @@ class AverageHumiditySensor(SensorEntity, RestoreEntity):
         # Calculate the average if we have numeric values
         if numeric_values:
             average_value = sum(numeric_values) / len(numeric_values)
-            self._state = round(average_value, 1)
+            self._state = str(round(average_value, 1))
             _LOGGER.debug(
                 f"Average numeric state for group {group_entity_id}: {average_value}"
             )
@@ -442,7 +448,7 @@ class AverageHumiditySensor(SensorEntity, RestoreEntity):
             _LOGGER.debug(
                 f"No numeric values found for entities in group {group_entity_id}."
             )
-            self._state = -1
+            self._state = "-1"
 
 
 class AverageTemperatureSensor(SensorEntity, RestoreEntity):
@@ -477,8 +483,8 @@ class AverageTemperatureSensor(SensorEntity, RestoreEntity):
         return "mdi:thermometer"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     def update(self) -> None:
@@ -521,7 +527,7 @@ class AverageTemperatureSensor(SensorEntity, RestoreEntity):
         # Calculate the average if we have numeric values
         if numeric_values:
             average_value = sum(numeric_values) / len(numeric_values)
-            self._state = round(average_value, 1)
+            self._state = str(round(average_value, 1))
             _LOGGER.debug(
                 f"Average numeric state for group {group_entity_id}: {average_value}"
             )
@@ -529,7 +535,7 @@ class AverageTemperatureSensor(SensorEntity, RestoreEntity):
             _LOGGER.debug(
                 f"No numeric values found for entities in group {group_entity_id}."
             )
-            self._state = -1
+            self._state = "-1"
 
 
 class VirtualIlluminanceSensor(SensorEntity, RestoreEntity):
@@ -564,13 +570,13 @@ class VirtualIlluminanceSensor(SensorEntity, RestoreEntity):
         return "mdi:sun-wireless-outline"
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> SensorDeviceClass:
         """Return the device_class of the sensor."""
         return SensorDeviceClass.ILLUMINANCE
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     def update(self) -> None:
@@ -678,8 +684,8 @@ class HighTemperatureTomorrowSensor(SensorEntity, RestoreEntity):
         return "mdi:thermometer"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     def update(self) -> None:
@@ -699,15 +705,27 @@ class HighTemperatureTomorrowSensor(SensorEntity, RestoreEntity):
 
         _LOGGER.debug(f"In high temp tomorrow forecasts: {forecasts}")
 
-        forecast = forecasts.get("weather.forecast_home").get("forecast")
+        if forecasts is None:
+            return
+
+        forecast_data = forecasts.get("weather.forecast_home")
+        if forecast_data is None or not isinstance(forecast_data, dict):
+            return
+
+        forecast = forecast_data.get("forecast", [])
+        if not isinstance(forecast, list):
+            return
 
         _LOGGER.debug(f"In high temp tomorrow forecast: {forecast}")
 
-        if len(forecast) > 0:
-            self._state = forecast[1]["temperature"]
+        if len(forecast) > 1 and isinstance(forecast[1], dict):
+            temp = forecast[1].get("temperature")
+            self._state = str(temp) if temp is not None else "unknown"
 
 
 class ConfigSensor(SensorEntity, RestoreEntity):
+    """Representation of a config sensor."""
+
     @property
     def device_info(self):
         """Return information about the device."""
@@ -718,27 +736,33 @@ class ConfigSensor(SensorEntity, RestoreEntity):
         }
 
     def __init__(self, key, state):
+        """Initialize the config sensor."""
         self._key = key
         self._state = state
 
     @property
     def name(self):
+        """Return the name of the sensor."""
         return f"Config {self._key}"
 
     @property
-    def state(self):
+    def native_value(self) -> str | None:
+        """Return the state value."""
         return self._state
 
     @property
     def unique_id(self):
+        """Return the unique identifier."""
         return f"config_sensor_{self._key.lower()}"
 
     @property
     def device_class(self):
+        """Return the device class."""
         return None
 
     @property
     def should_poll(self):
+        """Return whether polling is needed."""
         return False
 
 
@@ -765,14 +789,15 @@ class eh_person(SensorEntity, RestoreEntity):
 
     @property
     def unique_id(self) -> str:
-        return self._attr_unique_id
+        return self._attr_unique_id or f"effortlesshome_person_{self._email.lower().replace('@', '_').replace('.', '_')}"
 
     @property
     def icon(self) -> str:
         return "mdi:account-group"
 
     @property
-    def state(self) -> str:
+    def native_value(self) -> str:
+        """Return the native value."""
         return self._email
 
     @property

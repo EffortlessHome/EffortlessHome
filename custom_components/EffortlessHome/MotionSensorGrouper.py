@@ -1,11 +1,11 @@
-import logging  # noqa: D100, EXE002, N999
+"""Motion Sensor Grouper module for EffortlessHome."""
 
-from homeassistant.helpers import entity_registry
-from homeassistant.helpers import area_registry
+import logging
+
+from homeassistant.helpers import area_registry as ar
+from homeassistant.helpers import entity_registry as er
 
 _LOGGER = logging.getLogger(__name__)
-
-DOMAIN = "motion_sensor_groups"
 
 
 class MotionSensorGrouper:
@@ -19,11 +19,11 @@ class MotionSensorGrouper:
     async def create_sensor_groups(self) -> None:
         """Create groups of motion sensors by area."""
         _LOGGER.debug("[MotionSensorGrouper] create_sensor_groups called.")
-        areas = area_registry.async_get(self.hass)
-        entities = entity_registry.async_get(self.hass)
+        areas = ar.async_get(self.hass)
+        entities = er.async_get(self.hass)
         for area_id, area in areas.areas.items():
             _LOGGER.debug(
-                f"[MotionSensorGrouper] Processing area: {area.name} (ID: {area_id})"
+                "[MotionSensorGrouper] Processing area: %s (ID: %s)", area.name, area_id
             )
             motion_sensors = [
                 entity.entity_id
@@ -35,7 +35,9 @@ class MotionSensorGrouper:
                 and entity.area_id == area_id
             ]
             _LOGGER.debug(
-                f"[MotionSensorGrouper] Found motion sensors for area '{area.name}': {motion_sensors}"
+                "[MotionSensorGrouper] Found motion sensors for area '%s': %s",
+                area.name,
+                motion_sensors,
             )
             group_name = f"group.motion_sensors_{area.name.lower().replace(' ', '_')}"
             await self._create_group(group_name, motion_sensors)
@@ -43,23 +45,28 @@ class MotionSensorGrouper:
     async def create_security_sensor_group(self) -> None:
         """Create a group of motion sensors for security alarm."""
         _LOGGER.debug("[MotionSensorGrouper] create_security_sensor_group called.")
-        entities = entity_registry.async_get(self.hass)
+        entities = er.async_get(self.hass)
         motion_sensors = []
         for entity in entities.entities.values():
             if (
                 entity.original_device_class in ("motion", "occupancy", "presence")
-                and entity.entity_id != "binary_sensor.security_motion_sensors_group"
-                and entity.entity_id != "binary_sensor.security_motion_group_sensor"
-                and entity.entity_id != "group.security_motion_sensors_group"
+                and entity.entity_id not in (
+                    "binary_sensor.security_motion_sensors_group",
+                    "binary_sensor.security_motion_group_sensor",
+                    "group.security_motion_sensors_group",
+                )
                 and entity.labels is not None
                 and not self.checkforlabel(entity.labels, "notforsecuritymonitoring")
             ):
                 _LOGGER.debug(
-                    f"[MotionSensorGrouper] Adding entity to security group: {entity.entity_id} (labels: {entity.labels})"
+                    "[MotionSensorGrouper] Adding entity to security group: %s (labels: %s)",
+                    entity.entity_id,
+                    entity.labels,
                 )
                 motion_sensors.append(entity.entity_id)
         _LOGGER.debug(
-            f"[MotionSensorGrouper] Security motion sensors: {motion_sensors}"
+            "[MotionSensorGrouper] Security motion sensors: %s",
+            motion_sensors,
         )
         await self._create_group("group.security_motion_sensors_group", motion_sensors)
 
@@ -67,22 +74,28 @@ class MotionSensorGrouper:
         """Check whether a label is in the list of labels."""
         parsed_labels = [label for label in labels if label] if labels else []
         _LOGGER.debug(
-            f"[MotionSensorGrouper] Checking for label '{value_to_check}' in labels: {parsed_labels}"
+            "[MotionSensorGrouper] Checking for label '%s' in labels: %s",
+            value_to_check,
+            parsed_labels,
         )
         if value_to_check in parsed_labels:
             _LOGGER.debug(
-                f"[MotionSensorGrouper] '{value_to_check}' is in parsed_labels."
+                "[MotionSensorGrouper] '%s' is in parsed_labels.",
+                value_to_check,
             )
             return True
         _LOGGER.debug(
-            f"[MotionSensorGrouper] '{value_to_check}' is not in parsed_labels."
+            "[MotionSensorGrouper] '%s' is not in parsed_labels.",
+            value_to_check,
         )
         return False
 
     async def _create_group(self, group_name, entity_ids) -> None:  # noqa: ANN001
         """Create a group of entities in Home Assistant."""
         _LOGGER.debug(
-            f"[MotionSensorGrouper] Creating group '{group_name}' with entities: {entity_ids}"
+            "[MotionSensorGrouper] Creating group '%s' with entities: %s",
+            group_name,
+            entity_ids,
         )
         service_data = {
             "object_id": group_name.split(".")[-1],
@@ -91,5 +104,7 @@ class MotionSensorGrouper:
         }
         await self.hass.services.async_call("group", "set", service_data, blocking=True)
         _LOGGER.debug(
-            f"[MotionSensorGrouper] Group '{group_name}' created with entities: {entity_ids}"
+            "[MotionSensorGrouper] Group '%s' created with entities: %s",
+            group_name,
+            entity_ids,
         )

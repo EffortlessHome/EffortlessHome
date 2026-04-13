@@ -21,6 +21,7 @@ from .const import ALARM_TYPE_MED_ALERT, ALARM_TYPE_MONITORING, DOMAIN, NAME
 _LOGGER = logging.getLogger(__name__)
 
 SCAN_INTERVAL = timedelta(minutes=5)
+ENTITY_REGISTRY: dict[str, Any] = {}
 
 
 async def async_setup_entry(
@@ -45,9 +46,8 @@ async def async_setup_entry(
     async_add_entities([SmartApplianceSensor("smartappliance3")])
 
 
-def checkforlabel(labels, value_to_check) -> bool:
+def checkforlabel(labels: list[str] | None, value_to_check: str) -> bool:
     """Check whether a label is in the list of labels."""
-
     # Handle potential null or empty values and convert to a clean list
     parsed_labels = [label for label in labels if label] if labels else []
 
@@ -55,13 +55,18 @@ def checkforlabel(labels, value_to_check) -> bool:
 
     # Check if the value is in parsed_labels
     if value_to_check in parsed_labels:
-        _LOGGER.debug(f"'{value_to_check}' is in parsed_labels. '{parsed_labels}'")
+        _LOGGER.debug(
+            "'%s' is in parsed_labels. '%s'", value_to_check, parsed_labels
+        )
         return True
-    _LOGGER.debug(f"'{value_to_check}' is not in parsed_labels. '{parsed_labels}'")
+    _LOGGER.debug(
+        "'%s' is not in parsed_labels. '%s'", value_to_check, parsed_labels
+    )
     return False
 
 
-async def updateEntity(area_id, state):
+async def updateEntity(area_id: str, state: str) -> None:
+    """Update entity state."""
     sensor = ENTITY_REGISTRY.get(area_id)
     if sensor:
         sensor.set_state(state)
@@ -134,9 +139,9 @@ class SecurityMotionGroup(BinarySensorEntity, RestoreEntity):
         sensor_state = self.hass.states.get(entity_id)
 
         if sensor_state is not None:
-            self._state = sensor_state.state  # type: ignore  # noqa: PGH003
+            self._state = sensor_state.state
         else:
-            sensor_state = "unknown"
+            self._state = "unknown"
 
 
 class WindowGroup(BinarySensorEntity, RestoreEntity):
@@ -176,22 +181,13 @@ class WindowGroup(BinarySensorEntity, RestoreEntity):
         return "mdi:door-sliding"
 
     @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
-        return self._state
-
-    def update(self) -> None:
-        """Fetch new state data for the sensor.
-
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        entity_id = "group.window_sensors_group"
-        sensor_state = self.hass.states.get(entity_id)
-
-        if sensor_state is not None:
-            self._state = sensor_state.state  # type: ignore  # noqa: PGH003
-        else:
-            sensor_state = "unknown"
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
+        if self._state in ("on", "true", True):
+            return True
+        if self._state in ("off", "false", False):
+            return False
+        return None
 
 
 class DoorGroup(BinarySensorEntity, RestoreEntity):
@@ -231,9 +227,13 @@ class DoorGroup(BinarySensorEntity, RestoreEntity):
         return "mdi:door"
 
     @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
-        return self._state
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
+        if self._state in ("on", "true", True):
+            return True
+        if self._state in ("off", "false", False):
+            return False
+        return None
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -244,9 +244,9 @@ class DoorGroup(BinarySensorEntity, RestoreEntity):
         sensor_state = self.hass.states.get(entity_id)
 
         if sensor_state is not None:
-            self._state = sensor_state.state  # type: ignore  # noqa: PGH003
+            self._state = sensor_state.state
         else:
-            sensor_state = "unknown"
+            self._state = "unknown"
 
 
 class CarbonMonoxideGroup(BinarySensorEntity, RestoreEntity):
@@ -286,9 +286,13 @@ class CarbonMonoxideGroup(BinarySensorEntity, RestoreEntity):
         return "mdi:smoke-detector-variant"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
-        return self._state
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
+        if self._state in ("on", "true", True):
+            return True
+        if self._state in ("off", "false", False):
+            return False
+        return None
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -301,7 +305,7 @@ class CarbonMonoxideGroup(BinarySensorEntity, RestoreEntity):
         if sensor_state is not None:
             self._state = sensor_state.state
         else:
-            sensor_state = "unknown"
+            self._state = "unknown"
 
 
 class MoistureGroup(BinarySensorEntity, RestoreEntity):
@@ -341,9 +345,13 @@ class MoistureGroup(BinarySensorEntity, RestoreEntity):
         return "mdi:water"
 
     @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
-        return self._state
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
+        if self._state in ("on", "true", True):
+            return True
+        if self._state in ("off", "false", False):
+            return False
+        return None
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -354,9 +362,9 @@ class MoistureGroup(BinarySensorEntity, RestoreEntity):
         sensor_state = self.hass.states.get(entity_id)
 
         if sensor_state is not None:
-            self._state = sensor_state.state  # type: ignore  # noqa: PGH003
+            self._state = sensor_state.state
         else:
-            sensor_state = "unknown"
+            self._state = "unknown"
 
 
 class SmokeGroup(BinarySensorEntity, RestoreEntity):
@@ -396,9 +404,13 @@ class SmokeGroup(BinarySensorEntity, RestoreEntity):
         return "mdi:smoke-detector-variant"
 
     @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
-        return self._state
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
+        if self._state in ("on", "true", True):
+            return True
+        if self._state in ("off", "false", False):
+            return False
+        return None
 
     def update(self) -> None:
         """Fetch new state data for the sensor.
@@ -409,9 +421,9 @@ class SmokeGroup(BinarySensorEntity, RestoreEntity):
         sensor_state = self.hass.states.get(entity_id)
 
         if sensor_state is not None:
-            self._state = sensor_state.state  # type: ignore  # noqa: PGH003
+            self._state = sensor_state.state
         else:
-            sensor_state = "unknown"
+            self._state = "unknown"
 
 
 class BinaryMedAlertSensor(BinarySensorEntity, RestoreEntity):
@@ -462,8 +474,8 @@ class BinaryMedAlertSensor(BinarySensorEntity, RestoreEntity):
         return "mdi:ambulance"
 
     @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
         return self._state
 
     async def async_update(self) -> None:
@@ -474,6 +486,9 @@ class BinaryMedAlertSensor(BinarySensorEntity, RestoreEntity):
 
         entity_id = "switch.medicalalertalarm"
         switch_state = self.hass.states.get(entity_id)
+
+        if switch_state is None:
+            return
 
         turnOn = self._state == "off" and switch_state.state == "on"
         turnOff = self._state == "on" and switch_state.state == "off"
@@ -535,8 +550,8 @@ class MonitoringAlarm(BinarySensorEntity, RestoreEntity):
         return "mdi:shield-account-outline"
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
         return self._state
 
     async def async_update(self) -> None:
@@ -546,6 +561,9 @@ class MonitoringAlarm(BinarySensorEntity, RestoreEntity):
         """
         entity_id = "switch.monitoringalarm"
         switch_state = self.hass.states.get(entity_id)
+
+        if switch_state is None:
+            return
 
         turnOn = self._state == "off" and switch_state.state == "on"
         turnOff = self._state == "on" and switch_state.state == "off"
@@ -597,8 +615,8 @@ class SleepingSensor(BinarySensorEntity, RestoreEntity):
         return "sleeping_sensor"
 
     @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
         return self._state
 
     @property
@@ -619,7 +637,7 @@ class SleepingSensor(BinarySensorEntity, RestoreEntity):
         if state is not None:
             # Get the state value (e.g., "on" or "off")
             switch_state = state.state
-            _LOGGER.info(f"The state of {entity_id} is: {switch_state}")
+            _LOGGER.info("The state of %s is: %s", entity_id, switch_state)
             self._state = switch_state
         else:
             self._state = "off"
@@ -667,18 +685,18 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
                 )
             )
         except Exception as e:
-            _LOGGER.error(f"[SomeoneHomeSensor] Error registering event listener: {e}")
+            _LOGGER.error("[SomeoneHomeSensor] Error registering event listener: %s", e)
 
     async def _handle_switch_event(self, event):
         self._state = "on" if event.data["is_on"] else "off"
         self.async_write_ha_state()
         try:
             is_on = event.data.get("is_on")
-            _LOGGER.debug(f"[SomeoneHomeSensor] Received switch event: is_on={is_on}")
+            _LOGGER.debug("[SomeoneHomeSensor] Received switch event: is_on=%s", is_on)
             self._state = "on" if is_on else "off"
             self.async_write_ha_state()
         except Exception as e:
-            _LOGGER.error(f"[SomeoneHomeSensor] Error handling switch event: {e}")
+            _LOGGER.error("[SomeoneHomeSensor] Error handling switch event: %s", e)
 
     @property
     def name(self) -> str:
@@ -699,16 +717,20 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
         self._attr_is_on = state
         self.async_write_ha_state()
         try:
-            _LOGGER.debug(f"[SomeoneHomeSensor] set_state called with: {state}")
+            _LOGGER.debug("[SomeoneHomeSensor] set_state called with: %s", state)
             self._attr_is_on = state
             self.async_write_ha_state()
         except Exception as e:
-            _LOGGER.error(f"[SomeoneHomeSensor] Error in set_state: {e}")
+            _LOGGER.error("[SomeoneHomeSensor] Error in set_state: %s", e)
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
-        return self._state
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
+        if self._state in ("on", "true", True):
+            return True
+        if self._state in ("off", "false", False):
+            return False
+        return None
 
     def update(self) -> None:
         """Fetch new state data for the sensor, with detailed debug logging."""
@@ -720,17 +742,25 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
             for entity_id in self.hass.states.entity_ids("person"):
                 try:
                     state = self.hass.states.get(entity_id)
+                    state_value = getattr(state, "state", None)
                     _LOGGER.debug(
-                        f"[SomeoneHomeSensor][update] Checking person {entity_id}: state={getattr(state, 'state', None)}"
+                        "[SomeoneHomeSensor][update] Checking person %s: state=%s",
+                        entity_id,
+                        state_value,
                     )
                     if state and state.state == "home":
                         home += 1
                         _LOGGER.debug(
-                            f"[SomeoneHomeSensor][update] {entity_id} is home. Incremented home count: {home}"
+                            "[SomeoneHomeSensor][update] %s is home. "
+                            "Incremented home count: %s",
+                            entity_id,
+                            home,
                         )
                 except Exception as e:
                     _LOGGER.error(
-                        f"[SomeoneHomeSensor][update] Error checking person {entity_id}: {e}"
+                        "[SomeoneHomeSensor][update] Error checking person %s: %s",
+                        entity_id,
+                        e,
                     )
 
             entity_id = "group.security_motion_sensors_group"
@@ -742,11 +772,14 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
                     else "Unknown"
                 )
                 _LOGGER.debug(
-                    f"[SomeoneHomeSensor][update] Motion sensor group state: {motion_sensor_state_val}"
+                    "[SomeoneHomeSensor][update] Motion sensor group state: %s",
+                    motion_sensor_state_val,
                 )
             except Exception as e:
                 _LOGGER.error(
-                    f"[SomeoneHomeSensor][update] Error getting motion sensor group state: {e}"
+                    "[SomeoneHomeSensor][update] "
+                    "Error getting motion sensor group state: %s",
+                    e,
                 )
                 motion_sensor_state_val = "Unknown"
 
@@ -757,16 +790,26 @@ class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
                 prev_state = self._state
                 self._state = "on"
                 _LOGGER.debug(
-                    f"[SomeoneHomeSensor][update] Someone is home or motion detected. State changed from {prev_state} to 'on'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})"
+                    "[SomeoneHomeSensor][update] Someone is home or motion detected. "
+                    "State changed from %s to 'on'. "
+                    "(home=%s, motion_sensor_state_val=%s)",
+                    prev_state,
+                    home,
+                    motion_sensor_state_val,
                 )
             else:
                 prev_state = self._state
                 self._state = "off"
                 _LOGGER.debug(
-                    f"[SomeoneHomeSensor][update] No one home and no motion. State changed from {prev_state} to 'off'. (home={home}, motion_sensor_state_val={motion_sensor_state_val})"
+                    "[SomeoneHomeSensor][update] No one home and no motion. "
+                    "State changed from %s to 'off'. "
+                    "(home=%s, motion_sensor_state_val=%s)",
+                    prev_state,
+                    home,
+                    motion_sensor_state_val,
                 )
         except Exception as e:
-            _LOGGER.error(f"[SomeoneHomeSensor][update] Error in update: {e}")
+            _LOGGER.error("[SomeoneHomeSensor][update] Error in update: %s", e)
 
 
 class SmartApplianceSensor(BinarySensorEntity, RestoreEntity):
@@ -802,9 +845,13 @@ class SmartApplianceSensor(BinarySensorEntity, RestoreEntity):
         return self.name
 
     @property
-    def state(self):  # noqa: ANN201
-        """Return the state of the sensor."""
-        return self._state
+    def is_on(self) -> bool | None:
+        """Return true if entity is on."""
+        if self._state in ("on", "true", True):
+            return True
+        if self._state in ("off", "false", False):
+            return False
+        return None
 
     @property
     def icon(self):
@@ -824,10 +871,10 @@ class SmartApplianceSensor(BinarySensorEntity, RestoreEntity):
         if state is not None:
             # Get the state value (e.g., "on" or "off")
             switch_state = state.state
-            _LOGGER.info(f"The state of {entity_id} is: {switch_state}")
+            _LOGGER.info("The state of %s is: %s", entity_id, switch_state)
             self._state = switch_state
         else:
-            _LOGGER.info(f"The state of {entity_id} cannnot be determined")
+            _LOGGER.info("The state of %s cannot be determined", entity_id)
             self._state = "off"
 
 

@@ -2,19 +2,22 @@
 
 from __future__ import annotations
 
-from functools import cached_property
+import asyncio
 import logging
 import re
-import pytz
+from datetime import datetime, timedelta
+from functools import cached_property
 
-from homeassistant.util.dt import as_local
+import pytz
+from homeassistant.components.recorder.history import get_significant_states
 from homeassistant.components.switch import SwitchDeviceClass, SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.const import STATE_OFF, STATE_ON
+from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.helpers import discovery
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import UndefinedType
-from homeassistant.helpers.restore_state import RestoreEntity
+from homeassistant.util.dt import as_local
 
 from .auto_area import AutoArea
 from .const import DOMAIN, NAME
@@ -22,14 +25,6 @@ from .medication_tracking import MedicationTrackingSwitch
 from .motion_notification import MotionNotificationsSwitch
 from .sleep_mode import SleepModeSwitch
 from .smart_appliance_conversion import SmartApplianceConversionSwitch
-from datetime import timedelta
-import asyncio
-from datetime import datetime, timedelta
-from homeassistant.core import HomeAssistant, ServiceCall
-from homeassistant.helpers import discovery
-from homeassistant.helpers.event import async_track_state_change
-from homeassistant.components.recorder.history import get_significant_states
-from homeassistant.const import STATE_ON, STATE_OFF
 
 SCAN_INTERVAL = timedelta(seconds=5)
 
@@ -43,11 +38,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up entities."""
 
-    auto_area = AutoArea(hass=hass, areaid="unknown")
-
     async_add_entities(
         [
-            # PresenceLockSwitch(auto_area),
+            # PresenceLockSwitch(AutoArea(hass=hass, areaid="unknown")),
             SleepModeSwitch(),
             MotionNotificationsSwitch(),
             MonitoringAlarmSwitch("monitoringalarm"),

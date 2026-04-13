@@ -3,7 +3,6 @@ clean_motion_files:
   target: {}
   fields:
     age:
-      description: The age of the files to remove in days. Default is 30 days.
       example: 30
       selector:
         number:
@@ -20,18 +19,16 @@ add_label_to_entity:
   target: {}
   fields:
     entity_id:
-      description: The entity to update
       example: "binary_sensor.front_door"
       required: true
       selector:
-        entity:
+        entity: {}
 
     label:
-      description: The label to apply to the entity
       example: "favorite"
       required: true
       selector:
-        label:
+        label: {}
 
 # Create an alert record
 create_alert:
@@ -42,7 +39,7 @@ create_alert:
       example: "Humidity Alert"
       required: true
       selector:
-        text:
+        text: {}
     alert_description:
       description: Details about the alert
       example: "High humidity detected in basement"
@@ -78,18 +75,17 @@ update_entity:
   target: {}
   fields:
     entity_id:
-      description: The entity to update
       example: "binary_sensor.front_door"
       required: true
       selector:
-        entity:
+        entity: {}
 
     area_id:
       description: The new area to assign to the entity
       example: "living_room"
       required: true
       selector:
-        area:
+        area: {}
 
 # Deploy latest EffortlessHome config
 deploy_latest_config:
@@ -100,8 +96,7 @@ create_event:
   target: {}
   fields:
     entity_id:
-      description: The entity that triggered the event
       example: "binary_sensor.front_door"
       required: true
       selector:
-        entity:
+        entity: {}

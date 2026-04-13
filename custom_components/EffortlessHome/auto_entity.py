@@ -1,7 +1,7 @@
 """Base auto-entity class."""
 
 from functools import cached_property
-from typing import Generic, TypeVar, cast
+from typing import Generic, TypeVar
 
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.cover import CoverDeviceClass
@@ -41,7 +41,7 @@ class AutoEntity(Entity, Generic[_TEntity, _TDeviceClass]):
         super().__init__()
         self.hass = hass
         self.auto_area = auto_area
-        self._device_class = device_class
+        self._device_class: _TDeviceClass = device_class
         self._name_prefix = name_prefix
         self._prefix = prefix
 
@@ -79,7 +79,7 @@ class AutoEntity(Entity, Generic[_TEntity, _TDeviceClass]):
     @cached_property
     def device_class(self) -> _TDeviceClass:
         """Return device class."""
-        return cast(_TDeviceClass, self._device_class)
+        return self._device_class
 
     @property
     def device_info(self):
@@ -134,7 +134,7 @@ class AutoEntity(Entity, Generic[_TEntity, _TDeviceClass]):
             self.entity_states.pop(to_state.entity_id, None)
         else:
             try:
-                to_state.state = float(to_state.state)  # type: ignore
+                to_state.state = float(to_state.state)  # type: ignore[assignment]
                 self.entity_states[to_state.entity_id] = to_state
             except ValueError:
                 self.entity_states.pop(to_state.entity_id, None)

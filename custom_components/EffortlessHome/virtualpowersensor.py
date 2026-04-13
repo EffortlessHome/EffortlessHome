@@ -3,27 +3,41 @@
 from __future__ import annotations
 
 import logging
+from random import uniform
 
-from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
+from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity import async_generate_entity_id
+from homeassistant.helpers.entity_platform import (
+    AddEntitiesCallback,
+    async_get_platforms,
+)
+from homeassistant.helpers.event import async_track_state_change_event
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.sun import get_astral_event_date
 from homeassistant.util import dt as dt_util
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.entity_platform import async_get_platforms
-from homeassistant.helpers.event import async_track_state_change
-from homeassistant.helpers.entity import async_generate_entity_id
-from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
-from homeassistant.helpers import entity_registry as er
-from homeassistant.helpers.restore_state import RestoreEntity
-
-from random import uniform
 
 from .const import DOMAIN, NAME
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _track_state_change(hass: HomeAssistant, entity_id: str, action) -> callable:
+    """Track state changes in a way that works across newer HA versions."""
+
+    @callback
+    def _handle_state_change(_event) -> None:
+        action()
+
+    return async_track_state_change_event(hass, [entity_id], _handle_state_change)
 
 
 class VirtualPowerSensor(SensorEntity, RestoreEntity):
@@ -43,6 +57,7 @@ class VirtualPowerSensor(SensorEntity, RestoreEntity):
     # Router	5 - 15
 
     def __init__(self, hass: HomeAssistant, entity_id: str, watts: float):
+        """Initialize the virtual power sensor."""
         self.hass = hass
         self._entity_id = entity_id
 
@@ -65,8 +80,8 @@ class VirtualPowerSensor(SensorEntity, RestoreEntity):
         return self._attr_unique_id
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     @property
@@ -79,8 +94,8 @@ class VirtualPowerSensor(SensorEntity, RestoreEntity):
         }
 
     @property
-    def unit_of_measurement(self):
-        """Return the unit of measurement."""
+    def native_unit_of_measurement(self):
+        """Return the native unit of measurement."""
         return "W"
 
     @callback
@@ -111,8 +126,8 @@ class VirtualPowerSensor(SensorEntity, RestoreEntity):
             self._state = last_state.state
 
         # Register state change callback and store unsubscribe callback for cleanup
-        self._unsubscribe = async_track_state_change(
-            self.hass, [self._entity_id], lambda *_: self.update_virtual_power()
+        self._unsubscribe = _track_state_change(
+            self.hass, self._entity_id, self.update_virtual_power
         )
         self.update_virtual_power()
 
@@ -127,6 +142,7 @@ class VirtualPowerSensorAlwaysOn(SensorEntity, RestoreEntity):
     """Representation of a Virtual Power Sensor."""
 
     def __init__(self, hass: HomeAssistant, entity_id: str, watts: float):
+        """Initialize the always-on virtual power sensor."""
         self.hass = hass
         self._entity_id = entity_id
         self._attr_name = f"{entity_id}_virtual_power"
@@ -154,13 +170,13 @@ class VirtualPowerSensorAlwaysOn(SensorEntity, RestoreEntity):
         }
 
     @property
-    def state(self):
-        """Return the state of the sensor."""
+    def native_value(self):
+        """Return the native value of the sensor."""
         return self._state
 
     @property
-    def unit_of_measurement(self):
-        """Return the unit of measurement."""
+    def native_unit_of_measurement(self):
+        """Return the native unit of measurement."""
         return "W"
 
     @callback
@@ -180,8 +196,8 @@ class VirtualPowerSensorAlwaysOn(SensorEntity, RestoreEntity):
             self._state = last_state.state
 
         # Register state change callback and store unsubscribe callback for cleanup
-        self._unsubscribe = async_track_state_change(
-            self.hass, [self._entity_id], lambda *_: self.update_virtual_power()
+        self._unsubscribe = _track_state_change(
+            self.hass, self._entity_id, self.update_virtual_power
         )
         self.update_virtual_power()
 
@@ -226,13 +242,13 @@ class FakeDeviceVirtualPowerSensor(SensorEntity, RestoreEntity):
         }
 
     @property
-    def state(self):
+    def native_value(self):
         """Return the current power usage."""
         return self._state
 
     @property
-    def unit_of_measurement(self):
-        """Return the unit of measurement."""
+    def native_unit_of_measurement(self):
+        """Return the native unit of measurement."""
         return "W"
 
     def update(self):
@@ -279,23 +295,23 @@ class TotalEnergySensor(SensorEntity, RestoreEntity):
         return self._attr_unique_id
 
     @property
-    def state(self):
+    def native_value(self):
         """Return the total energy usage in kWh."""
         return self._state
 
     @property
-    def device_class(self) -> str:
+    def device_class(self) -> SensorDeviceClass:
         """Return the device_class of the sensor."""
-        return "energy"
+        return SensorDeviceClass.ENERGY
 
     @property
-    def state_class(self) -> str:
+    def state_class(self) -> SensorStateClass:
         """Return the state_class of the sensor."""
-        return "total"
+        return SensorStateClass.TOTAL
 
     @property
-    def unit_of_measurement(self):
-        """Return the unit of measurement."""
+    def native_unit_of_measurement(self) -> str:
+        """Return the native unit of measurement."""
         return "kWh"
 
     def update(self):

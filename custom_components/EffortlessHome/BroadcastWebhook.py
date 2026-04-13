@@ -1,9 +1,14 @@
+"""Broadcast Webhook module for EffortlessHome."""
+
 from __future__ import annotations
+
 import logging
-from .const import DOMAIN
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.components import webhook
+
 from aiohttp import web
+from homeassistant.components import webhook
+from homeassistant.core import HomeAssistant, callback
+
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,6 +21,7 @@ class BroadcastWebhook:
         self.hass = hass
 
     async def async_setup_webhook(self) -> bool:
+        """Set up broadcast webhook."""
         _LOGGER.info("Setting up Broadcast Webhook")
 
         try:
@@ -26,8 +32,8 @@ class BroadcastWebhook:
                 "effortlesshome_broadcast",
                 self.handle_webhook,
             )
-        except Exception as e:
-            _LOGGER.info(f"Error setting up Broadcast Webhook: {e}")
+        except ValueError as e:
+            _LOGGER.info("Error setting up Broadcast Webhook: %s", e)
 
         return True
 
@@ -67,7 +73,7 @@ class BroadcastWebhook:
         except ValueError as e:
             _LOGGER.error("Webhook JSON error: invalid JSON body - %s", e)
             return web.Response(status=400, text="Invalid JSON")
-        except Exception as e:
+        except RuntimeError as e:
             _LOGGER.error("Error processing broadcast webhook: %s", e)
             return web.Response(status=500, text="Internal server error")
 
@@ -77,5 +83,5 @@ async def async_remove(self) -> None:
     try:
         webhook.async_unregister(self.hass, "effortlesshome_broadcast")
         _LOGGER.info("Broadcast Webhook unregistered")
-    except Exception as e:
-        _LOGGER.info(f"Error unregistering webhook: {e}")
+    except RuntimeError as e:
+        _LOGGER.info("Error unregistering webhook: %s", e)
