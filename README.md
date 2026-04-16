@@ -8,7 +8,7 @@
 
 [![Get Early Access](https://img.shields.io/badge/🚀_Get_Early_Access-Sign_Up_Now-F97316?style=for-the-badge)](https://www.effortlesshome.co/#cta)
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg?style=flat-square)](https://github.com/hacs/integration)
-[![Version](https://img.shields.io/badge/version-2.0.8-blue.svg?style=flat-square)](https://github.com/effortlesshome/effortlesshome)
+[![Version](https://img.shields.io/badge/version-11-blue.svg?style=flat-square)](https://github.com/effortlesshome/effortlesshome)
 [![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)](LICENSE)
 
 <br/>
