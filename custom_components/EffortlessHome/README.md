@@ -30,7 +30,7 @@ EffortlessHome is a comprehensive Home Assistant integration that provides advan
 ### HACS Installation (Recommended)
 
 1. Open HACS in your Home Assistant instance
-2. Add this Github Repo as a custom source
+2. Add this GitHub repo as a custom source: `https://github.com/effortlesshome/effortlesshome`
 3. Search for "EffortlessHome"
 4. Click Install
 5. Restart Home Assistant
