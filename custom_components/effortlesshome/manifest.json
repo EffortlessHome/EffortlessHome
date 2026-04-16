@@ -1,20 +1,19 @@
 {
   "domain": "effortlesshome",
   "name": "EffortlessHome",
-  "version": "2.0.8",
-  "documentation": "https://www.effortlesshome.co/getstarted/",
-  "issue_tracker": "https://github.com/effortlesshome/effortlesshome/issues",
   "codeowners": [
     "@effortlesshome"
   ],
   "config_flow": true,
-  "integration_type": "service",
-  "iot_class": "cloud_polling",
   "dependencies": [
     "http",
     "recorder",
     "conversation"
   ],
+  "documentation": "https://www.effortlesshome.co/getstarted/",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/effortlesshome/effortlesshome/issues",
   "loggers": [
     "effortlesshome"
   ],
@@ -29,5 +28,6 @@
     "gTTS==2.5.0",
     "google-genai==1.29.0",
     "influxdb-client==1.48.0"
-  ]
+  ],
+  "version": "2.0.8"
 }
