@@ -153,9 +153,6 @@ The integration requires the following Home Assistant components:
 - `sensor`
 - `conversation`
 
-## Mobile App Notifications
-
-To enable mobile app notifications, you need to configure Home Assistant's `mobile_app` integration with Firebase. Use the `effortlesshome.get_firebase_config` service to retrieve the Firebase configuration, then add it to your `configuration.yaml`.
 
 ## Labels
 
@@ -167,8 +164,7 @@ The integration uses the following labels for entity organization:
 ## Support
 
 - **GitHub Issues**: [Report bugs and feature requests](https://github.com/EffortlessHome/EffortlessHome/issues)
-- **Discord Community**: [Join our Discord server](https://discord.gg/effortlesshome)
-- **Forum**: [Community Forum](https://community.home-assistant.io/t/effortlesshome/)
+
 
 ## Contributing
 
@@ -176,7 +172,7 @@ We welcome contributions! Please see our [contributing guidelines](CONTRIBUTING.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License Version 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
@@ -188,11 +184,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Note**: This integration requires an EffortlessHome account. Sign up at [https://my.effortlesshome.co](https://my.effortlesshome.co)
 
-[buymecoffee]: https://www.buymecoffee.com/effortlesshome
-[buymecoffeebadge]: https://img.shields.io/badge/buy%20me%20a%20coffee-donate-yellow.svg?style=for-the-badge
-[discord]: https://discord.gg/effortlesshome
-[discord-shield]: https://img.shields.io/discord/1234567890?color=7289da&label=Discord&logo=discord&logoColor=white&style=for-the-badge
-[forum-shield]: https://img.shields.io/badge/community-forum-brightgreen.svg?style=for-the-badge&logo=home-assistant
+
 [forum]: https://community.home-assistant.io/
 [license-shield]: https://img.shields.io/github/license/EffortlessHome/EffortlessHome.svg?style=for-the-badge
 [maintenance-shield]: https://img.shields.io/maintenance/yes/2024.svg?style=for-the-badge
