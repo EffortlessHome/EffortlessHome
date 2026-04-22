@@ -816,8 +816,6 @@ def register_services(hass: HomeAssistant) -> None:
 
     hass.services.async_register(DOMAIN, "update_entity", update_entity)
 
-    hass.services.async_register(DOMAIN, "create_alert", create_alert)
-
     hass.services.async_register(
         DOMAIN, "deploy_latest_config", handle_deploy_latest_config
     )
@@ -915,52 +913,6 @@ async def create_event(call: ServiceCall) -> None:
 async def createevent(calldata) -> None:
     """Create event (deprecated name)."""
     await create_event(calldata)
-
-
-async def create_alert(call: ServiceCall) -> None:
-    """Create alert."""
-    _LOGGER.info("create alert calldata =%s", call.data)
-
-    hass = HASSComponent.get_hass()
-    alert_type = call.data.get("alert_type")
-    alert_description = call.data.get("alert_description")
-    status = call.data.get("status")
-
-    if not alert_type or not alert_description or not status:
-        _LOGGER.error(
-            "alert_type, alert_description, and status are required for create_alert service"
-        )
-        return
-
-    alert_data = {
-        "alert_type": alert_type,
-        "alert_description": alert_description,
-        "status": status,
-    }
-
-    # Call the API to create alert
-    systemid = hass.data[DOMAIN].get("systemid")
-    id_token = hass.data[DOMAIN].get("id_token")
-
-    _LOGGER.info("Calling alert API with payload: %s", alert_data)
-
-    async with OasiraAPIClient(
-        system_id=systemid,
-        id_token=id_token,
-    ) as api_client:
-        try:
-            result = await api_client.create_alert(alert_data)
-            _LOGGER.info("API response content: %s", result)
-            return result
-        except OasiraAPIError as e:
-            _LOGGER.error("Failed to create alert: %s", e)
-            return None
-
-
-# Keep old name for backward compatibility
-async def createalert(calldata) -> None:
-    """Create alert (deprecated name)."""
-    await create_alert(calldata)
 
 
 async def cancel_alarm(call: ServiceCall) -> None:

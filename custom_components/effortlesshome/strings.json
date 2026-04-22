@@ -63,10 +63,6 @@
       "name": "Add label to entity",
       "description": "Add a label to an entity"
     },
-    "create_alert": {
-      "name": "Create alert",
-      "description": "Create an alert record"
-    },
     "confirm_pending_alarm": {
       "name": "Confirm pending alarm",
       "description": "Confirm a pending EffortlessHome alarm"

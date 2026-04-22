@@ -68,7 +68,6 @@ The integration provides several services:
 | Service | Description |
 |---------|-------------|
 | `effortlesshome.clean_motion_files` | Clean old motion snapshot files |
-| `effortlesshome.create_alert` | Create an alert record |
 | `effortlesshome.cancel_alarm` | Cancel an active alarm |
 | `effortlesshome.get_alarm_status` | Get current alarm status |
 | `effortlesshome.confirm_pending_alarm` | Confirm a pending alarm |

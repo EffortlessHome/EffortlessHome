@@ -30,34 +30,6 @@ add_label_to_entity:
       selector:
         label: {}
 
-# Create an alert record
-create_alert:
-  target: {}
-  fields:
-    alert_type:
-      description: The type of the alert
-      example: "Humidity Alert"
-      required: true
-      selector:
-        text: {}
-    alert_description:
-      description: Details about the alert
-      example: "High humidity detected in basement"
-      required: true
-      selector:
-        text:
-          multiline: true
-    status:
-      description: The status of the alert
-      example: "Active"
-      required: true
-      selector:
-        select:
-          options:
-            - "Active"
-            - "Resolved"
-            - "Acknowledged"
-
 # Confirm pending EffortlessHome alarm
 confirm_pending_alarm:
   target: {}
