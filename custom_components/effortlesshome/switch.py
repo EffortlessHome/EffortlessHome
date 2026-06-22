@@ -21,7 +21,6 @@ from homeassistant.util.dt import as_local
 
 from .auto_area import AutoArea
 from .const import DOMAIN, NAME
-from .medication_tracking import MedicationTrackingSwitch
 from .motion_notification import MotionNotificationsSwitch
 from .sleep_mode import SleepModeSwitch
 from .smart_appliance_conversion import SmartApplianceConversionSwitch

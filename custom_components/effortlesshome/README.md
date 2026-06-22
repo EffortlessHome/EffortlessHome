@@ -135,8 +135,6 @@ This integration requires the following Python packages (automatically installed
 - `google-auth>=2.28.0`
 - `google-api-python-client>=2.126.0`
 - `gTTS>=2.5.0`
-- `google-genai==1.29.0`
-- `influxdb-client>=1.48.0`
 
 ### Home Assistant Dependencies
 

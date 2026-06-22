@@ -33,6 +33,8 @@ from .virtualpowersensor import (
     TotalEnergySensor,
 )
 
+from homeassistant.const import LIGHT_LUX
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -553,6 +555,7 @@ class VirtualIlluminanceSensor(SensorEntity, RestoreEntity):
     def __init__(self) -> None:
         """Initialize the sensor."""
         self._state = 1000
+        self._attr_native_unit_of_measurement = LIGHT_LUX
 
     @property
     def unique_id(self) -> str:

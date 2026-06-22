@@ -1,8 +1,10 @@
 # Service to clean motion files older than specified age
 clean_motion_files:
+  description: "Deletes old camera snapshot files to free up disk space."
   target: {}
   fields:
     age:
+      description: "The maximum age of files to keep, in days."
       example: 30
       selector:
         number:
@@ -12,19 +14,23 @@ clean_motion_files:
 
 # Get Firebase configuration from Oasira for mobile_app setup
 get_firebase_config:
+  description: "Retrieves Firebase configuration from Oasira, required for mobile app notifications. Displays the configuration in a persistent notification."
   target: {}
 
 # Add a label to an entity
 add_label_to_entity:
+  description: "Assigns a label to an entity, helping to organize and group entities."
   target: {}
   fields:
     entity_id:
+      description: "The entity to which the label will be added."
       example: "binary_sensor.front_door"
       required: true
       selector:
         entity: {}
 
     label:
+      description: "The label to add to the entity."
       example: "favorite"
       required: true
       selector:
@@ -32,28 +38,33 @@ add_label_to_entity:
 
 # Confirm pending EffortlessHome alarm
 confirm_pending_alarm:
+  description: "Confirms a pending alarm, escalating it to an active alarm state."
   target: {}
 
 # Cancel EffortlessHome alarm
 cancel_alarm:
+  description: "Cancels an active or pending alarm."
   target: {}
 
 # Get EffortlessHome alarm status
 get_alarm_status:
+  description: "Retrieves the current status of the EffortlessHome alarm system."
   target: {}
 
 # Update entity area
 update_entity:
+  description: "Moves an entity to a different area."
   target: {}
   fields:
     entity_id:
+      description: "The entity to be moved."
       example: "binary_sensor.front_door"
       required: true
       selector:
         entity: {}
 
     area_id:
-      description: The new area to assign to the entity
+      description: "The new area to assign to the entity."
       example: "living_room"
       required: true
       selector:
@@ -61,13 +72,16 @@ update_entity:
 
 # Deploy latest EffortlessHome config
 deploy_latest_config:
+  description: "Deploys the latest configuration files for the integration, including themes and blueprints."
   target: {}
 
 # Create event service
 create_event:
+  description: "Creates a security event for a given entity, which can be used to trigger alarms or notifications."
   target: {}
   fields:
     entity_id:
+      description: "The entity that triggered the event."
       example: "binary_sensor.front_door"
       required: true
       selector:

@@ -311,7 +311,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
 
     def __init__(self, config_entry):
         """Initialize options flow."""
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Manage the options."""
@@ -324,7 +324,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 {
                     vol.Optional(
                         "debug_mode",
-                        default=self.config_entry.options.get("debug_mode", False),
+                        default=self._config_entry.options.get("debug_mode", False),
                     ): bool,
                 }
             ),

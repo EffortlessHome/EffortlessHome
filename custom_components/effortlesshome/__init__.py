@@ -50,7 +50,6 @@ from .const import (
 from .deviceclassgroupsync import async_setup_devicegroup
 from .MotionSensorGrouper import MotionSensorGrouper
 from .SecurityAlarmWebhook import SecurityAlarmWebhook, async_remove as security_async_remove
-from .siren import SirenGrouper
 from .virtualpowersensor import VirtualPowerSensor
 
 try:
@@ -498,10 +497,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 "customerid": customer_id,
                 "id_token": id_token,
                 "refresh_token": entry.data.get("refresh_token"),
-                "influx_url": parsed_data["influx_url"],
-                "influx_token": parsed_data["influx_token"],
-                "influx_bucket": parsed_data["influx_bucket"],
-                "influx_org": parsed_data["influx_org"],
                 "DaysHistoryToKeep": parsed_data["DaysHistoryToKeep"],
                 "LowTemperatureWarning": parsed_data["LowTemperatureWarning"],
                 "HighTemperatureWarning": parsed_data["HighTemperatureWarning"],
@@ -619,12 +614,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         except Exception as e:
             _LOGGER.warning("Failed to create motion sensor groups: %s", e)
 
-        # Create siren group
-        try:
-            siren_grouper = SirenGrouper(hass)
-            await siren_grouper.create_siren_group()
-        except Exception as e:
-            _LOGGER.warning("Failed to create siren group: %s", e)
 
         await loaddevicegroups(None)
 
@@ -806,8 +795,6 @@ async def add_label_to_entity(call: ServiceCall) -> None:
 def register_services(hass: HomeAssistant) -> None:
     """Register effortlesshome services."""
 
-    hass.services.async_register(DOMAIN, "clean_motion_files", clean_motion_files)
-
     # Register our service with Home Assistant.
     hass.services.async_register(DOMAIN, "create_event", create_event)
     hass.services.async_register(DOMAIN, "cancel_alarm", cancel_alarm)
@@ -949,40 +936,6 @@ async def confirm_pending_alarm(call: ServiceCall) -> None:
 async def confirmpendingalarm(calldata) -> None:
     """Confirm pending alarm (deprecated name)."""
     await confirm_pending_alarm(calldata)
-
-
-async def clean_motion_files(call: ServiceCall) -> None:
-    """Execute the shell command to delete old snapshots."""
-    age = call.data.get("age", 30)
-
-    if not isinstance(age, int) or age < 1:
-        _LOGGER.warning("Invalid age value %s, using default 30 days", age)
-        age = 30
-
-    command = f"find /media/snapshots/* -mtime +{age} -exec rm {{}} \\;"
-
-    # Use subprocess to execute the shell command
-    try:
-        process = subprocess.run(
-            command,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-
-        if process.returncode == 0:
-            _LOGGER.info("Successfully deleted old snapshots older than %s days", age)
-        else:
-            _LOGGER.error("Error deleting snapshots: %s", process.stderr.decode())
-    except Exception as e:
-        _LOGGER.error("Failed to clean motion files: %s", e)
-
-
-# Keep old name for backward compatibility
-async def cleanmotionfiles(calldata):
-    """Execute the shell command to delete old snapshots (deprecated name)."""
-    await clean_motion_files(calldata)
 
 
 async def handle_get_firebase_config(call: ServiceCall) -> None:
