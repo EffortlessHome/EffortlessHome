@@ -41,7 +41,6 @@ from .alarm_common import (
 )
 from .auto_area import AutoArea
 from .auth_helper import safe_api_call
-from .BroadcastWebhook import BroadcastWebhook, async_remove as broadcast_async_remove
 from .const import (
     DOMAIN,
     LABELS,
@@ -553,8 +552,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     security_webhook = SecurityAlarmWebhook(hass)
     await SecurityAlarmWebhook.async_setup_webhook(security_webhook)
 
-    broadcast_webhook = BroadcastWebhook(hass)
-    await BroadcastWebhook.async_setup_webhook(broadcast_webhook)
 
     webhook.async_register(
         hass,
