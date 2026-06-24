@@ -23,11 +23,15 @@ FIREBASE_URL = (
 
 
 async def async_get_service(hass, config, discovery_info=None):
-    service_account = hass.config.path(
+    service_account_path = hass.config.path(
         "custom_components/effortlesshome/firebase_service_account.json"
     )
-    with open(service_account, "r") as f:
-        creds = json.load(f)
+
+    def load_creds():
+        with open(service_account_path, "r") as f:
+            return json.load(f)
+
+    creds = await hass.async_add_executor_job(load_creds)
 
     store = storage.Store(hass, STORAGE_VERSION, STORAGE_KEY)
     tokens = await store.async_load() or []

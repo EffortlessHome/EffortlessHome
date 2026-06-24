@@ -601,34 +601,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Label already exists → ignore
             _LOGGER.info("Label already exists: %s", desired)
 
-    async def after_home_assistant_started(event):
-        """Call this function after Home Assistant has started."""
-        # Create motion sensor groups
-        try:
-            grouper = MotionSensorGrouper(hass)
-            await grouper.create_sensor_groups()
-            await grouper.create_security_sensor_group()
-        except Exception as e:
-            _LOGGER.warning("Failed to create motion sensor groups: %s", e)
-
-
-        await loaddevicegroups(None)
-
-        # TODO: Update the link below with the actual add-on slug
-        # notify_create(
-        #    hass,
-        #    title="EffortlessHome Add-on Required",
-        #    message=(
-        #        "The EffortlessHome integration needs the EffortlessHome Add-on. "
-        #        "Click [here](https://my.home-assistant.io/redirect/supervisor_addon/?addon=<your_slug>) to install it."
-        #    ),
-        # )
-
-    # Listen for the 'homeassistant_started' event
-    hass.bus.async_listen_once(
-        EVENT_HOMEASSISTANT_STARTED, after_home_assistant_started
-    )
-
     # Start Firebase token refresh task (refresh every 50 minutes, tokens expire in 60 minutes)
     async def refresh_firebase_token():
         """Periodically refresh the Firebase ID token."""
@@ -640,54 +612,66 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             )
             return
 
-        while True:
-            try:
-                _LOGGER.info("Refreshing Firebase ID token...")
+        try:
+            _LOGGER.info("Refreshing Firebase ID token...")
 
-                async with OasiraAPIClient() as api_client:
-                    result = await api_client.firebase_refresh_token(refresh_token)
+            async with OasiraAPIClient() as api_client:
+                result = await api_client.firebase_refresh_token(refresh_token)
 
-                new_id_token = result.get("idToken")
-                new_refresh_token = result.get("refreshToken")
+            new_id_token = result.get("idToken")
+            new_refresh_token = result.get("refreshToken")
 
-                if new_id_token:
-                    # Update the token in hass.data
-                    hass.data[DOMAIN]["id_token"] = new_id_token
-                    hass.data[DOMAIN]["refresh_token"] = (
-                        new_refresh_token or refresh_token
-                    )
+            if new_id_token:
+                # Update the token in hass.data
+                hass.data[DOMAIN]["id_token"] = new_id_token
+                hass.data[DOMAIN]["refresh_token"] = (
+                    new_refresh_token or refresh_token
+                )
 
-                    # Update the config entry data
-                    hass.config_entries.async_update_entry(
-                        entry,
-                        data={
-                            **entry.data,
-                            "id_token": new_id_token,
-                            "refresh_token": new_refresh_token or refresh_token,
-                        },
-                    )
+                # Update the config entry data
+                hass.config_entries.async_update_entry(
+                    entry,
+                    data={
+                        **entry.data,
+                        "id_token": new_id_token,
+                        "refresh_token": new_refresh_token or refresh_token,
+                    },
+                )
 
-                    # Update the refresh token for next iteration
-                    if new_refresh_token:
-                        refresh_token = new_refresh_token
+                _LOGGER.info("✅ Firebase ID token refreshed successfully")
+            else:
+                _LOGGER.error(
+                    "Failed to refresh Firebase token - no idToken in response"
+                )
 
-                    _LOGGER.info("✅ Firebase ID token refreshed successfully")
-                else:
-                    _LOGGER.error(
-                        "Failed to refresh Firebase token - no idToken in response"
-                    )
+        except OasiraAPIError as e:
+            _LOGGER.error("Failed to refresh Firebase token: %s", e)
+            # Continue trying even if refresh fails
+        except Exception as e:
+            _LOGGER.exception("Unexpected error refreshing Firebase token: %s", e)
+        finally:
+            # Schedule the next refresh in 50 minutes
+            hass.loop.call_later(50 * 60, lambda: hass.async_create_task(refresh_firebase_token()))
 
-            except OasiraAPIError as e:
-                _LOGGER.error("Failed to refresh Firebase token: %s", e)
-                # Continue trying even if refresh fails
-            except Exception as e:
-                _LOGGER.exception("Unexpected error refreshing Firebase token: %s", e)
-            finally:
-                # Wait 50 minutes before refreshing (tokens expire in 60 minutes)
-                await asyncio.sleep(50 * 60)
+    async def after_home_assistant_started(event):
+        """Call this function after Home Assistant has started."""
+        # Create motion sensor groups
+        try:
+            grouper = MotionSensorGrouper(hass)
+            await grouper.create_sensor_groups()
+            await grouper.create_security_sensor_group()
+        except Exception as e:
+            _LOGGER.warning("Failed to create motion sensor groups: %s", e)
 
-    # Start the refresh task
-    hass.async_create_task(refresh_firebase_token())
+        await loaddevicegroups(None)
+
+        # Start the refresh task
+        hass.async_create_task(refresh_firebase_token())
+
+    # Listen for the 'homeassistant_started' event
+    hass.bus.async_listen_once(
+        EVENT_HOMEASSISTANT_STARTED, after_home_assistant_started
+    )
 
     return True
 

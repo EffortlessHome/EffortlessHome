@@ -1,6 +1,7 @@
 import logging
 
 from homeassistant.components.group import DOMAIN as GROUP_DOMAIN
+from homeassistant.const import STATE_ON
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,14 +30,32 @@ class DeviceClassGroupSync:
             )
         ]
 
-        # Use the group.set service to create or update the group
-        await self.hass.services.async_call(
-            GROUP_DOMAIN,
-            "set",
+        # The group.set service has been removed, so we manually create the group state.
+        is_binary_sensor_group = self.device_class in [
+            "smoke",
+            "carbon_monoxide",
+            "door",
+            "window",
+            "moisture",
+            "sound",
+            "vibration",
+        ]
+
+        group_state = "unknown"
+        if is_binary_sensor_group:
+            group_state = "off"
+            for entity_id in matching_entities:
+                entity_state = self.hass.states.get(entity_id)
+                if entity_state and entity_state.state == STATE_ON:
+                    group_state = "on"
+                    break
+        
+        self.hass.states.async_set(
+            f"group.{self.group_name}",
+            group_state,
             {
-                "object_id": self.group_name,
-                "name": f"{self.device_class} Group",
-                "entities": matching_entities,
+                "entity_id": matching_entities,
+                "friendly_name": f"{self.device_class.replace('_', ' ').title()} Group",
             },
         )
 
