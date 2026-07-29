@@ -443,15 +443,29 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         id_token=id_token,
     ) as api_client:
         try:
-            parsed_data = await api_client.get_customer_and_system()
+            # Use safe_api_call to handle token expiry and retries
+            parsed_data = await safe_api_call(hass, api_client.get_customer_and_system)
+        except OasiraAPIError as e:
+            if "401" in str(e):
+                _LOGGER.info("Token expired, requesting reauth")
+                entry.async_start_reauth(hass)
+                return False
+            _LOGGER.error("Failed to fetch customer/system data: %s", e)
+            raise HomeAssistantError(
+                f"Failed to fetch customer/system data: {e}"
+            ) from e
 
-            # Fetch plan features for this system
+        if parsed_data is None:
+            raise HomeAssistantError("Could not retrieve customer/system data.")
+
+        # Fetch plan features for this system
+        plan_features = None
+        try:
+            # Use safe_api_call to handle token expiry and retries
+            plan_features = await safe_api_call(hass, api_client.get_plan_features_by_system_id)
+        except Exception as pf_exc:
+            _LOGGER.warning("Failed to fetch plan features: %s", pf_exc)
             plan_features = None
-            try:
-                plan_features = await api_client.get_plan_features_by_system_id()
-            except Exception as pf_exc:
-                _LOGGER.warning("Failed to fetch plan features: %s", pf_exc)
-                plan_features = None
 
             # Setup mobile_app integration with Firebase config from Oasira
             try:
@@ -861,19 +875,12 @@ async def create_event(call: ServiceCall) -> None:
 
                 _LOGGER.info("Calling create event API with payload: %s", event_data)
 
-                async with OasiraAPIClient(
-                    system_id=systemid,
-                    id_token=id_token,
-                ) as api_client:
+                async with OasiraAPIClient(system_id=systemid, id_token=id_token) as api_client:
                     try:
-                        result = await api_client.create_event(alarmid, event_data)
-                        _LOGGER.info("API response content: %s", result)
-                        return result
+                        return await safe_api_call(hass, api_client.create_event, alarmid, event_data)
                     except OasiraAPIError as e:
                         _LOGGER.error("Failed to create event: %s", e)
                         return None
-            return None
-        return None
     return None
 
 
@@ -938,41 +945,41 @@ async def handle_get_firebase_config(call: ServiceCall) -> None:
             return
 
         # Get Firebase config from Oasira
-        async with OasiraAPIClient(
-            system_id=system_id, id_token=id_token
-        ) as api_client:
-            from .mobile_app_config import (
-                setup_mobile_app_config,
-                generate_mobile_app_config_yaml,
-            )
+        async with OasiraAPIClient(system_id=system_id, id_token=id_token) as api_client:
+            try:
+                # Use safe_api_call to handle token expiry and retries
+                mobile_app_config = await safe_api_call(hass, api_client.setup_mobile_app_integration, hass, api_client)
+                if mobile_app_config:
+                    # Generate YAML config for display
+                    yaml_config = generate_mobile_app_config_yaml(mobile_app_config)
 
-            mobile_app_config = await setup_mobile_app_config(hass, api_client)
+                    # Create a persistent notification with the config
+                    message = f"""
+        Firebase Configuration retrieved from Oasira:
 
-            if mobile_app_config:
-                # Generate YAML config for display
-                yaml_config = generate_mobile_app_config_yaml(mobile_app_config)
+        ```yaml
+        {yaml_config}
+        ```
 
-                # Create a persistent notification with the config
-                message = f"""
-Firebase Configuration retrieved from Oasira:
+        **Important:** Home Assistant's mobile_app integration requires manual configuration.
+        To enable mobile app notifications, add the above YAML to your configuration.yaml file, then restart Home Assistant.
 
-```yaml
-{yaml_config}
-```
-
-**Important:** Home Assistant's mobile_app integration requires manual configuration.
-To enable mobile app notifications, add the above YAML to your configuration.yaml file, then restart Home Assistant.
-
-Without this configuration, mobile app notifications will not work.
-"""
-                notify_create(hass, message, title="Firebase Configuration")
-
-                _LOGGER.info("Firebase config retrieved and displayed to user")
-            else:
-                _LOGGER.error("Failed to retrieve Firebase config from Oasira")
+        Without this configuration, mobile app notifications will not work.
+        """
+                    notify_create(hass, message, title="Firebase Configuration")
+                    _LOGGER.info("Firebase config retrieved and displayed to user")
+                else:
+                    _LOGGER.error("Failed to retrieve Firebase config from Oasira")
+                    notify_create(
+                        hass,
+                        "Failed to retrieve Firebase configuration from Oasira",
+                        title="Firebase Config Error",
+                    )
+            except Exception as e:
+                _LOGGER.error(f"Error retrieving Firebase config: {e}", exc_info=True)
                 notify_create(
                     hass,
-                    "Failed to retrieve Firebase configuration from Oasira",
+                    f"Error retrieving Firebase config: {str(e)}",
                     title="Firebase Config Error",
                 )
 
