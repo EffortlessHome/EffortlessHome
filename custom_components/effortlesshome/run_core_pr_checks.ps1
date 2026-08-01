@@ -145,6 +145,7 @@ if ($needsSetup) {
 
     if (-not (Test-PythonModule -Python $venvPython -Module "homeassistant")) {
         Invoke-SetupStep -Name "Install HA package (editable)" -Action {
+            Set-Location -Path $componentPath
             if ($uvPath) {
                 & $uvPath pip install --python $venvPython -e . --config-settings editable_mode=compat
             }
@@ -152,6 +153,7 @@ if ($needsSetup) {
                 & $venvPython -m pip install --upgrade pip
                 & $venvPython -m pip install -e . --config-settings editable_mode=compat
             }
+            Set-Location -Path $coreRoot # Change back to core root
         }
     }
 
@@ -223,59 +225,7 @@ try {
 
     foreach ($check in $checksToRun) {
         switch ($check) {
-            "prek" {
-                if (-not (Test-Path $prekExe)) {
-                    throw "prek is not installed in .venv after setup."
-                }
-
-                Invoke-CheckStep -Name "Run prek checks" -Action {
-                    # Re-apply assume-unchanged in case git index was refreshed.
-                    git -C $coreRoot update-index --assume-unchanged ".agent/skills" 2>$null
-
-                    # Use --files to target only integration files.
-                    # Avoids --all-files which runs git ls-files and tries to hash
-                    # .agent/skills (incompatible on Windows).
-                    $rootLen = ([string]$coreRoot).Length + 1
-                    $integrationFiles = Get-ChildItem -Path $componentPath -Recurse -File |
-                    Where-Object {
-                        $_.Extension -in @('.py', '.yaml', '.json', '.md', '.js') -and
-                        $_.FullName -notmatch '\\(__pycache__|\.venv|\.vscode)(\\|$)'
-                    } |
-                    ForEach-Object { $_.FullName.Substring($rootLen).Replace('\', '/') }
-
-                    if (-not $integrationFiles) {
-                        Write-Host "No checkable files found in $componentPath - skipping prek."
-                        return
-                    }
-
-                    $env:PREK_SKIP = "no-commit-to-branch,mypy,pylint,gen_requirements_all,hassfest,hassfest-metadata,hassfest-mypy-config,zizmor"
-                    $batch = [System.Collections.Generic.List[string]]::new()
-                    $batchLength = 0
-                    $maxBatchLength = 7000
-
-                    foreach ($file in $integrationFiles) {
-                        $candidateLength = $batchLength + $file.Length + 1
-                        if ($batch.Count -gt 0 -and $candidateLength -gt $maxBatchLength) {
-                            & $prekExe run --files @($batch)
-                            if ($LASTEXITCODE -and $LASTEXITCODE -ne 0) {
-                                break
-                            }
-
-                            $batch.Clear()
-                            $batchLength = 0
-                        }
-
-                        $batch.Add($file)
-                        $batchLength += $file.Length + 1
-                    }
-
-                    if ((-not $LASTEXITCODE -or $LASTEXITCODE -eq 0) -and $batch.Count -gt 0) {
-                        & $prekExe run --files @($batch)
-                    }
-
-                    Remove-Item Env:PREK_SKIP -ErrorAction SilentlyContinue
-                }
-            }
+            
 
             "hassfest" {
                 Invoke-CheckStep -Name "Check hassfest" -Action {

@@ -444,7 +444,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ) as api_client:
         try:
             # Use safe_api_call to handle token expiry and retries
-            parsed_data = await safe_api_call(hass, api_client.get_customer_and_system)
+            parsed_data = await safe_api_call(hass, entry, api_client.get_customer_and_system)
         except OasiraAPIError as e:
             if "401" in str(e):
                 _LOGGER.info("Token expired, requesting reauth")

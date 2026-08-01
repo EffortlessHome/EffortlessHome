@@ -5,10 +5,10 @@ import json
 import logging
 import time
 from typing import Any, Callable, Coroutine, TypeVar, Awaitable
-from functools import wraps
+from homeassistant.config_entries import ConfigEntry
 
 from oasira import OasiraAPIClient, OasiraAPIError
-from .const import DOMAIN
+from .const import DOMAIN, CONF_REFRESH_TOKEN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -48,9 +48,9 @@ def _is_firebase_token_error(err: Exception) -> bool:
     return False
 
 
-async def _refresh_id_token(hass) -> bool:
+async def _refresh_id_token(hass, config_entry: ConfigEntry) -> bool:
     """Refresh the Firebase ID token."""
-    refresh_token = hass.data.get(DOMAIN, {}).get("refresh_token")
+    refresh_token = config_entry.data.get(CONF_REFRESH_TOKEN)
     if not refresh_token:
         _LOGGER.warning("No refresh token available - cannot refresh Firebase token")
         return False
@@ -69,16 +69,14 @@ async def _refresh_id_token(hass) -> bool:
         hass.data[DOMAIN]["id_token"] = new_id_token
         hass.data[DOMAIN]["refresh_token"] = new_refresh_token
 
-        entry = hass.data[DOMAIN].get("config_entry")
-        if entry is not None:
-            hass.config_entries.async_update_entry(
-                entry,
-                data={
-                    **entry.data,
-                    "id_token": new_id_token,
-                    "refresh_token": new_refresh_token,
-                },
-            )
+        await hass.config_entries.async_update_entry(
+            entry=config_entry,
+            data={
+                **config_entry.data,
+                "id_token": new_id_token,
+                "refresh_token": new_refresh_token,
+            },
+        )
 
         _LOGGER.info("✅ Firebase ID token refreshed successfully")
         return True
@@ -113,7 +111,7 @@ def _is_token_expired(token: str, threshold: int = 60) -> bool:
     return time.time() >= exp - threshold
 
 
-async def ensure_valid_id_token(hass) -> bool:
+async def ensure_valid_id_token(hass, config_entry: ConfigEntry) -> bool:
     """Ensure the current ID token is valid, refreshing it if necessary."""
     current_token = hass.data.get(DOMAIN, {}).get("id_token")
     if current_token and not _is_token_expired(current_token):
@@ -121,14 +119,14 @@ async def ensure_valid_id_token(hass) -> bool:
     return await _refresh_id_token(hass)
 
 
-async def get_valid_id_token(hass) -> str | None:
+async def get_valid_id_token(hass, config_entry: ConfigEntry) -> str | None:
     """Return a valid ID token after refreshing it if needed."""
     if await ensure_valid_id_token(hass):
         return hass.data.get(DOMAIN, {}).get("id_token")
     return None
 
 
-async def refresh_firebase_id_token(hass) -> bool:
+async def refresh_firebase_id_token(hass, config_entry: ConfigEntry) -> bool:
     """Refresh the Firebase ID token and persist updated credentials."""
     return await _refresh_id_token(hass)
 
@@ -150,7 +148,7 @@ def with_token_refresh(
     """
 
     @wraps(func)
-    async def wrapper(*args, **kwargs) -> T:
+    async def wrapper(config_entry: ConfigEntry, *args, **kwargs) -> T:
         hass = None
 
         # Try to extract hass from args (usually first argument)
@@ -180,7 +178,7 @@ def with_token_refresh(
                 )
 
                 # Try to refresh token
-                if await _refresh_id_token(hass):
+                if await _refresh_id_token(hass, config_entry):
                     _LOGGER.info("Token refreshed, retrying API call...")
                     try:
                         # Retry the function with refreshed token
@@ -201,7 +199,7 @@ def with_token_refresh(
 
 
 async def safe_api_call(
-    hass, api_call_func: Callable[..., Awaitable[T]], *args, **kwargs
+    hass, config_entry: ConfigEntry, api_call_func: Callable[..., Awaitable[T]], *args, **kwargs
 ) -> T:
     """
     Execute an API call with automatic token refresh handling.
@@ -228,7 +226,7 @@ async def safe_api_call(
             _LOGGER.warning("Firebase token error detected, attempting refresh: %s", e)
 
             # Try to refresh token
-            if await _refresh_id_token(hass):
+            if await _refresh_id_token(hass, config_entry):
                 _LOGGER.info("Token refreshed, retrying API call...")
                 try:
                     # Retry the API call with refreshed token
