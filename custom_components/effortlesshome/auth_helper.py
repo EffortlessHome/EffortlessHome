@@ -7,7 +7,7 @@ import time
 from typing import Any, Callable, Coroutine, TypeVar, Awaitable
 from homeassistant.config_entries import ConfigEntry
 
-from oasira import OasiraAPIClient, OasiraAPIError
+from .oasira import OasiraAPIClient, OasiraAPIError
 from .const import DOMAIN, CONF_REFRESH_TOKEN
 
 _LOGGER = logging.getLogger(__name__)

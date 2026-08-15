@@ -17,7 +17,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import StateType
 from homeassistant.const import STATE_UNKNOWN
 
-from oasira import OasiraAPIClient, OasiraAPIError
+from .oasira import OasiraAPIClient, OasiraAPIError
 from .const import DOMAIN, NAME, ATTR_LATITUDE, ATTR_LONGITUDE
 from .notificationdevice import effortlesshomenotificationdevice
 from .auth_helper import safe_api_call

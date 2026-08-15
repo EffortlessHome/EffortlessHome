@@ -15,7 +15,7 @@ from urllib.parse import quote
 from google.auth import jwt
 from google.auth.crypt import rsa
 import voluptuous as vol
-from oasira import OasiraAPIClient, OasiraAPIError
+from .oasira import OasiraAPIClient, OasiraAPIError
 
 from homeassistant.components import webhook
 from homeassistant.components.notify import BaseNotificationService

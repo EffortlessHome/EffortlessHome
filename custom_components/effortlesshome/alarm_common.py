@@ -6,7 +6,7 @@ import logging
 from homeassistant.core import HomeAssistant
 
 from . import const
-from oasira import OasiraAPIClient, OasiraAPIError
+from .oasira import OasiraAPIClient, OasiraAPIError
 from .const import (
     ALARM_TYPE_MED_ALERT,
     ALARM_TYPE_MONITORING,
