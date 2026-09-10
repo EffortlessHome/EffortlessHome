@@ -158,18 +158,15 @@ Easy area and label management — no YAML required.
 3. Enter your EffortlessHome account credentials
 4. Select the system you want to configure (if you have multiple systems)
 
+### Home Assistant Network Settings 
+Using your local network information, add entries like these to Home Assistant in the Settings > System > Network page:
+<img src="app_screenshots/networkconfig.png" alt="HA Network Config" width="700"/>
+
 ### Configuration.yaml changes
 
 Add the following configuration to your Home Assistant configuration.yaml file:
 
 ```yaml
-http:
-  use_x_forwarded_for: true
-  trusted_proxies:
-    - 192.168.1.0/24 (replace with your local network range)
-  cors_allowed_origins:
-    - https://dash.effortlesshome.co
-
 homeassistant:
   allowlist_external_dirs:
     - /media
