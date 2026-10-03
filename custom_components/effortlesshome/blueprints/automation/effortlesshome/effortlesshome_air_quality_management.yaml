@@ -1,0 +1,109 @@
+blueprint:
+  name: Air Quality Management
+  description: Set the actions to take when air quality sensors exceed configured thresholds
+  domain: automation
+  author: EffortlessHome
+  input:
+    aqi_sensor:
+      name: AQI Sensor
+      description: The air quality index sensor to monitor.
+      default: sensor.air_quality_index
+      selector:
+        entity:
+          domain: sensor
+    aqi_threshold:
+      name: AQI Threshold
+      description: The AQI value that triggers the alert.
+      default: 75
+      selector:
+        number:
+          min: 0
+          max: 500
+          step: 1
+    pm25_sensor:
+      name: PM2.5 Sensor
+      description: The fine particulate sensor to monitor.
+      default: sensor.pm25
+      selector:
+        entity:
+          domain: sensor
+    pm25_threshold:
+      name: PM2.5 Threshold
+      description: The PM2.5 value that triggers the alert.
+      default: 35
+      selector:
+        number:
+          min: 0
+          max: 500
+          step: 1
+    voc_sensor:
+      name: VOC Sensor
+      description: The VOC sensor to monitor.
+      default: sensor.voc
+      selector:
+        entity:
+          domain: sensor
+    voc_threshold:
+      name: VOC Threshold
+      description: The VOC value that triggers the alert.
+      default: 250
+      selector:
+        number:
+          min: 0
+          max: 5000
+          step: 1
+    co2_sensor:
+      name: CO2 Sensor
+      description: The CO2 sensor to monitor.
+      default: sensor.co2
+      selector:
+        entity:
+          domain: sensor
+    co2_threshold:
+      name: CO2 Threshold
+      description: The CO2 value that triggers the alert.
+      default: 1000
+      selector:
+        number:
+          min: 0
+          max: 10000
+          step: 10
+    notification_message:
+      name: Notification message
+      description: The message sent when air quality exceeds the configured threshold.
+      default: "Air quality is poor. Please improve ventilation or air circulation."
+    additional_actions:
+      name: Additional Actions
+      description: Add additional actions to execute (Optional)
+      default: []
+      selector:
+        action: {}
+
+trigger:
+  - platform: numeric_state
+    entity_id: !input aqi_sensor
+    above: !input aqi_threshold
+  - platform: numeric_state
+    entity_id: !input pm25_sensor
+    above: !input pm25_threshold
+  - platform: numeric_state
+    entity_id: !input voc_sensor
+    above: !input voc_threshold
+  - platform: numeric_state
+    entity_id: !input co2_sensor
+    above: !input co2_threshold
+
+action:
+  - service: notify.effortlesshome
+    data:
+      title: Air Quality Alert
+      message: !input notification_message
+
+  - service: effortlesshome.create_alert_service
+    data:
+      alert_type: Air Quality Alert
+      alert_description: !input notification_message
+      status: Active
+
+  - choose: []
+    default: !input additional_actions
