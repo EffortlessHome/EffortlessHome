@@ -44,7 +44,7 @@
     "step": {
       "init": {
         "title": "EffortlessHome Options",
-        "description": "Install the EffortlessHome Cloud app to enable cloud services: [Install EffortlessHome Cloud](https://my.home-assistant.io/redirect/supervisor_addon/?addon=effortlesshome_bridge&repository=https%3A%2F%2Fgithub.com%2FEffortlessHome%2Feffortlesshome_addon)",
+        "description": "Install {%- my.home-assistant.io/redirect/supervisor_addon/?addon=effortlesshome_bridge -%}",
         "data": {
           "debug_mode": "Enable debug logging"
         }
