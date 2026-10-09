@@ -149,6 +149,15 @@ Easy area and label management — no YAML required.
 2. Restart Home Assistant
 3. Add the integration via Configuration > Integrations > Add Integration > EffortlessHome
 
+### EffortlessHome Add-on
+
+On Home Assistant OS or Supervised installations, use the **Add EffortlessHome
+Add-on Repository** button provided by the integration. Once the repository has
+been added, use the integration's **Install EffortlessHome Add-on** button.
+Check **Settings > Add-ons** for installation progress and configuration.
+This feature is not available with Home Assistant Container/Core, which does
+not include Supervisor or support add-ons.
+
 ## Configuration
 
 ### Initial Setup

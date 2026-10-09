@@ -40,17 +40,6 @@
       "reauth_successful": "Re-authentication successful"
     }
   },
-  "options": {
-    "step": {
-      "init": {
-        "title": "EffortlessHome Options",
-        "description": "Install {%- my.home-assistant.io/redirect/supervisor_addon/?addon=effortlesshome_bridge -%}",
-        "data": {
-          "debug_mode": "Enable debug logging"
-        }
-      }
-    }
-  },
   "services": {
     "clean_motion_files": {
       "name": "Clean motion files",

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import logging
 import math
@@ -59,6 +60,7 @@ except (ImportError, AttributeError, Exception):
     SOURCE_TYPE_GPS = "gps"
 
 from aiohttp import web
+import aiohttp
 
 ATTR_TITLE = "title"
 ATTR_DATA = "data"
@@ -79,6 +81,16 @@ FIREBASE_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 FCM_URL = "https://fcm.googleapis.com/v1/projects/oasira-oauth/messages:send"
 PUSH_TOKEN_STORAGE_KEY = "effortlesshome_push_tokens"
 PUSH_TOKEN_STORAGE_VERSION = 1
+SUPERVISOR_ADDON_REPOSITORY = (
+    "https://github.com/EffortlessHome/effortlesshome_addon"
+)
+SUPERVISOR_REPOSITORY_SLUG = hashlib.sha1(
+    SUPERVISOR_ADDON_REPOSITORY.lower().encode()
+).hexdigest()[:8]
+SUPERVISOR_ADDON_CONFIG_SLUG = "effortlesshome_bridge"
+SUPERVISOR_ADDON_SLUG = (
+    f"{SUPERVISOR_REPOSITORY_SLUG}_{SUPERVISOR_ADDON_CONFIG_SLUG}"
+)
 
 
 class HASSComponent:
@@ -813,6 +825,97 @@ def register_services(hass: HomeAssistant) -> None:
         schema=vol.Schema(
             {vol.Required("entity_id"): cv.entity_id, vol.Required("label"): cv.string}
         ),
+    )
+
+
+async def async_add_effortlesshome_addon_repository(
+    hass: HomeAssistant,
+) -> None:
+    """Register the EffortlessHome add-on repository with Supervisor."""
+    supervisor_token = os.environ.get("SUPERVISOR_TOKEN")
+    if not supervisor_token:
+        raise HomeAssistantError(
+            "Cannot add the EffortlessHome add-on repository: "
+            "the Supervisor token is unavailable."
+        )
+
+    session = async_get_clientsession(hass)
+    try:
+        async with session.post(
+            "http://supervisor/store/repositories",
+            headers={"Authorization": f"Bearer {supervisor_token}"},
+            json={"repository": SUPERVISOR_ADDON_REPOSITORY},
+        ) as response:
+            if response.status < 200 or response.status >= 300:
+                _LOGGER.error(
+                    "Supervisor rejected the EffortlessHome add-on repository "
+                    "with HTTP %s",
+                    response.status,
+                )
+                raise HomeAssistantError(
+                    "Supervisor could not add the EffortlessHome add-on repository "
+                    f"(HTTP {response.status})."
+                )
+    except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+        _LOGGER.exception("Failed to contact Supervisor to add the add-on repository")
+        raise HomeAssistantError(
+            "Unable to contact Supervisor to add the EffortlessHome add-on repository."
+        ) from err
+
+    _LOGGER.info("Added EffortlessHome add-on repository to Supervisor")
+    notify_create(
+        hass,
+        "EffortlessHome add-on repository added. Press the integration's Install "
+        "EffortlessHome Add-on button to start installation.",
+        title="EffortlessHome",
+        notification_id="effortlesshome_addon_repository_added",
+    )
+
+
+async def async_install_effortlesshome_addon(
+    hass: HomeAssistant,
+) -> None:
+    """Start installing the EffortlessHome add-on through Supervisor."""
+    supervisor_token = os.environ.get("SUPERVISOR_TOKEN")
+    if not supervisor_token:
+        raise HomeAssistantError(
+            "Cannot install the EffortlessHome add-on: "
+            "the Supervisor token is unavailable."
+        )
+
+    session = async_get_clientsession(hass)
+    try:
+        async with session.post(
+            f"http://supervisor/store/addons/{SUPERVISOR_ADDON_SLUG}/install",
+            headers={"Authorization": f"Bearer {supervisor_token}"},
+            json={"background": True},
+        ) as response:
+            if response.status < 200 or response.status >= 300:
+                _LOGGER.error(
+                    "Supervisor rejected the EffortlessHome add-on installation "
+                    "with HTTP %s. Ensure the EffortlessHome add-on repository "
+                    "has been added first.",
+                    response.status,
+                )
+                raise HomeAssistantError(
+                    "Supervisor could not start installing the EffortlessHome "
+                    "add-on (HTTP "
+                    f"{response.status}). Add the EffortlessHome add-on repository "
+                    "first if it has not been added."
+                )
+    except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+        _LOGGER.exception("Failed to contact Supervisor to install the add-on")
+        raise HomeAssistantError(
+            "Unable to contact Supervisor to install the EffortlessHome add-on."
+        ) from err
+
+    _LOGGER.info("Started EffortlessHome add-on installation through Supervisor")
+    notify_create(
+        hass,
+        "Supervisor has started installing the EffortlessHome add-on. Check "
+        "Settings > Add-ons for installation progress and configuration.",
+        title="EffortlessHome",
+        notification_id="effortlesshome_addon_installation_started",
     )
 
 
