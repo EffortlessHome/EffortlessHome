@@ -20,7 +20,7 @@ from homeassistant.const import STATE_UNKNOWN
 from .oasira import OasiraAPIClient, OasiraAPIError
 from .const import DOMAIN, NAME, ATTR_LATITUDE, ATTR_LONGITUDE
 from .notificationdevice import effortlesshomenotificationdevice
-from .auth_helper import safe_api_call
+from .auth_helper import ensure_valid_id_token, safe_api_call
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -411,12 +411,24 @@ class eh_person(SensorEntity, RestoreEntity):
         """Generate a Firebase access token using service account JSON (async + HA safe)."""
 
         try:
-            # ---- Fetch service account JSON using API client ----
-            # Get the id_token from hass.data for authentication
-            id_token = self.hass.data[DOMAIN].get("id_token") if self.hass else None
+            if self.hass is None:
+                raise OasiraAPIError("Home Assistant is unavailable")
+            config_entry = self.hass.data.get(DOMAIN, {}).get("config_entry")
+            if config_entry is None or not await ensure_valid_id_token(
+                self.hass, config_entry
+            ):
+                raise OasiraAPIError("Missing or invalid Firebase ID token")
 
-            async with OasiraAPIClient(id_token=id_token) as client:
-                firebase_config = await client.get_firebase_config()
+            async def _fetch_firebase_config() -> dict[str, Any]:
+                id_token = self.hass.data[DOMAIN].get("id_token")
+                if not id_token:
+                    raise OasiraAPIError("Missing Firebase ID token")
+                async with OasiraAPIClient(id_token=id_token) as client:
+                    return await client.get_firebase_config()
+
+            firebase_config = await safe_api_call(
+                self.hass, config_entry, _fetch_firebase_config
+            )
 
             google_firebase_raw = firebase_config.get("Google_Firebase")
             if not google_firebase_raw:

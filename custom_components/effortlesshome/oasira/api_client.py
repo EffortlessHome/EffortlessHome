@@ -227,6 +227,7 @@ class OasiraAPIClient:
         url = f"{CUSTOMER_API}getsystemsbycustomerid/0"
         headers = {
             **self._get_common_headers(),
+            "eh_customer_id": customer_id,
         }
         response = await self._make_request("GET", url, headers)
         return response.get("results", [])
@@ -277,9 +278,11 @@ class OasiraAPIClient:
         url = f"{CUSTOMER_API}getcustomerbyemail/0"
         headers = {
             **self._get_common_headers(),
+            "eh_customer_email": email,
         }
         response = await self._make_request("GET", url, headers)
-        return response.get("results", [{}])[0]
+        results = response.get("results", [])
+        return results[0] if results else {}
 
     async def get_customer_by_customer_id(self, customer_id: str) -> Dict[str, Any]:
         """Get customer information by customer ID.
@@ -696,10 +699,13 @@ class OasiraAPIClient:
 
     # --- System Management ---
 
-    async def add_system(self, system_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def add_system(
+        self, customer_id: str, system_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Add a new system.
         
         Args:
+            customer_id: Customer ID that will own the system
             system_data: System data (ha_url, alarmpin, ha_token, address_json, etc.)
             
         Returns:
@@ -708,24 +714,29 @@ class OasiraAPIClient:
         url = f"{CUSTOMER_API}addsystem/0"
         headers = {
             **self._get_common_headers(),
+            "eh_customer_id": customer_id,
         }
-        return await self._make_request("GET", url, headers, system_data)
+        return await self._make_request("POST", url, headers, system_data)
 
-    async def update_system(self, system_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def update_system(
+        self, customer_id: str, system_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
         """Update system configuration.
         
         Args:
+            customer_id: Customer ID that owns the system
             system_data: System data (ha_url, alarmpin, ha_token, address_json, etc.)
             
         Returns:
             API response
         """
-        url = f"{CUSTOMER_API}updatesystem/0"
+        url = f"{CUSTOMER_API}updatesystem/{self.system_id}"
         headers = {
             **self._get_common_headers(),
+            "eh_customer_id": customer_id,
             "eh_system_id": self.system_id,
         }
-        return await self._make_request("GET", url, headers, system_data)
+        return await self._make_request("POST", url, headers, system_data)
 
     async def update_system_customer_edit(self, system_data: Dict[str, Any]) -> Dict[str, Any]:
         """Update system configuration (customer editable fields only).
@@ -1382,4 +1393,3 @@ class OasiraAPIClient:
             self.system_id = system_id
         if id_token is not None:
             self.id_token = id_token
-

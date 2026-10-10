@@ -13,6 +13,7 @@ from .const import (
     ALARM_TYPE_SECURITY,
     DOMAIN,
 )
+from .auth_helper import refresh_firebase_id_token
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -97,45 +98,11 @@ def _extract_error_json(err: Exception) -> dict | None:
 
 
 async def _refresh_id_token(hass: HomeAssistant) -> bool:
-    refresh_token = hass.data.get(DOMAIN, {}).get("refresh_token")
-    if not refresh_token:
-        _LOGGER.warning("No refresh token available - cannot refresh Firebase token")
+    config_entry = hass.data.get(DOMAIN, {}).get("config_entry")
+    if config_entry is None:
+        _LOGGER.warning("No config entry available to refresh Firebase token")
         return False
-
-    try:
-        async with OasiraAPIClient() as api_client:
-            result = await api_client.firebase_refresh_token(refresh_token)
-
-        new_id_token = result.get("idToken")
-        new_refresh_token = result.get("refreshToken") or refresh_token
-
-        if not new_id_token:
-            _LOGGER.error("Failed to refresh Firebase token - no idToken in response")
-            return False
-
-        hass.data[DOMAIN]["id_token"] = new_id_token
-        hass.data[DOMAIN]["refresh_token"] = new_refresh_token
-
-        entry = hass.data[DOMAIN].get("config_entry")
-        if entry is not None:
-            hass.config_entries.async_update_entry(
-                entry,
-                data={
-                    **entry.data,
-                    "id_token": new_id_token,
-                    "refresh_token": new_refresh_token,
-                },
-            )
-
-        _LOGGER.info("✅ Firebase ID token refreshed successfully")
-        return True
-
-    except OasiraAPIError as e:
-        _LOGGER.error("Failed to refresh Firebase token: %s", e)
-        return False
-    except Exception as e:
-        _LOGGER.exception("Unexpected error refreshing Firebase token: %s", e)
-        return False
+    return await refresh_firebase_id_token(hass, config_entry)
 
 
 async def async_creatependingalarm(

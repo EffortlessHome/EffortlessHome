@@ -4,7 +4,7 @@ import base64
 import json
 import logging
 import time
-from typing import Any, Callable, Coroutine, TypeVar, Awaitable
+from typing import Any, Awaitable, Callable, TypeVar
 from homeassistant.config_entries import ConfigEntry
 
 from .oasira import OasiraAPIClient, OasiraAPIError
@@ -69,7 +69,7 @@ async def _refresh_id_token(hass, config_entry: ConfigEntry) -> bool:
         hass.data[DOMAIN]["id_token"] = new_id_token
         hass.data[DOMAIN]["refresh_token"] = new_refresh_token
 
-        await hass.config_entries.async_update_entry(
+        hass.config_entries.async_update_entry(
             entry=config_entry,
             data={
                 **config_entry.data,
@@ -116,19 +116,19 @@ async def ensure_valid_id_token(hass, config_entry: ConfigEntry) -> bool:
     current_token = hass.data.get(DOMAIN, {}).get("id_token")
     if current_token and not _is_token_expired(current_token):
         return True
-    return await _refresh_id_token(hass)
+    return await _refresh_id_token(hass, config_entry)
 
 
 async def get_valid_id_token(hass, config_entry: ConfigEntry) -> str | None:
     """Return a valid ID token after refreshing it if needed."""
-    if await ensure_valid_id_token(hass):
+    if await ensure_valid_id_token(hass, config_entry):
         return hass.data.get(DOMAIN, {}).get("id_token")
     return None
 
 
 async def refresh_firebase_id_token(hass, config_entry: ConfigEntry) -> bool:
     """Refresh the Firebase ID token and persist updated credentials."""
-    return await _refresh_id_token(hass)
+    return await _refresh_id_token(hass, config_entry)
 
 
 def with_token_refresh(
@@ -199,10 +199,17 @@ def with_token_refresh(
 
 
 async def safe_api_call(
-    hass, config_entry: ConfigEntry, api_call_func: Callable[..., Awaitable[T]], *args, **kwargs
+    hass,
+    config_entry: ConfigEntry,
+    api_call_func: Callable[..., Awaitable[T]],
+    *args,
+    **kwargs,
 ) -> T:
     """
     Execute an API call with automatic token refresh handling.
+
+    The callable should create a fresh API client for each invocation so a
+    retry uses the newly refreshed ID token.
 
     This is an alternative to the decorator for cases where you need
     more control over the API call execution.

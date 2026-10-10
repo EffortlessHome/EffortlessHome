@@ -24,7 +24,7 @@ from homeassistant.components.persistent_notification import create as notify_cr
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
 from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.exceptions import HomeAssistantError
+from homeassistant.exceptions import ConfigEntryAuthFailed, HomeAssistantError
 from homeassistant.helpers import (
     config_validation as cv,
     device_registry as dr,
@@ -41,7 +41,11 @@ from .alarm_common import (
     async_getalarmstatus,
 )
 from .auto_area import AutoArea
-from .auth_helper import safe_api_call
+from .auth_helper import (
+    ensure_valid_id_token,
+    refresh_firebase_id_token,
+    safe_api_call,
+)
 from .const import (
     DOMAIN,
     LABELS,
@@ -429,6 +433,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up integration from a config entry."""
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["entry_id"] = entry.entry_id
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
     token_store: Store = storage.Store(
         hass, PUSH_TOKEN_STORAGE_VERSION, PUSH_TOKEN_STORAGE_KEY
@@ -440,110 +445,135 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     system_id = entry.data["system_id"]
     customer_id = entry.data["customer_id"]
     id_token = entry.data.get("id_token")
+    refresh_token = entry.data.get("refresh_token")
 
     if not system_id:
         raise HomeAssistantError("System ID is missing in configuration.")
 
     if not customer_id:
         raise HomeAssistantError("Customer ID is missing in configuration.")
+    if not refresh_token:
+        raise ConfigEntryAuthFailed(
+            "Firebase refresh token is missing; please reauthenticate."
+        )
 
     HASSComponent.set_hass(hass)
+    hass.data[DOMAIN].update(
+        {
+            "entry_id": entry.entry_id,
+            "config_entry": entry,
+            "id_token": id_token,
+            "refresh_token": refresh_token,
+        }
+    )
 
-    # Initialize API client and fetch customer/system data
-    async with OasiraAPIClient(
-        system_id=system_id,
-        id_token=id_token,
-    ) as api_client:
-        try:
-            # Use safe_api_call to handle token expiry and retries
-            parsed_data = await safe_api_call(hass, entry, api_client.get_customer_and_system)
-        except OasiraAPIError as e:
-            if "401" in str(e):
-                _LOGGER.info("Token expired, requesting reauth")
-                entry.async_start_reauth(hass)
-                return False
-            _LOGGER.error("Failed to fetch customer/system data: %s", e)
-            raise HomeAssistantError(
-                f"Failed to fetch customer/system data: {e}"
-            ) from e
+    if not await ensure_valid_id_token(hass, entry):
+        raise ConfigEntryAuthFailed(
+            "Firebase authentication expired; please reauthenticate."
+        )
 
-        if parsed_data is None:
-            raise HomeAssistantError("Could not retrieve customer/system data.")
+    async def _fetch_customer_and_system():
+        token = hass.data[DOMAIN].get("id_token")
+        if not token:
+            raise OasiraAPIError("Missing Firebase ID token")
+        async with OasiraAPIClient(system_id=system_id, id_token=token) as client:
+            return await client.get_customer_and_system()
 
-        # Fetch plan features for this system
+    try:
+        parsed_data = await safe_api_call(
+            hass, entry, _fetch_customer_and_system
+        )
+    except OasiraAPIError as err:
+        if "401" in str(err):
+            raise ConfigEntryAuthFailed(
+                "Firebase authentication failed; please reauthenticate."
+            ) from err
+        raise HomeAssistantError(
+            f"Failed to fetch customer/system data: {err}"
+        ) from err
+
+    if parsed_data is None:
+        raise HomeAssistantError("Could not retrieve customer/system data.")
+
+    async def _fetch_plan_features():
+        token = hass.data[DOMAIN].get("id_token")
+        if not token:
+            raise OasiraAPIError("Missing Firebase ID token")
+        async with OasiraAPIClient(system_id=system_id, id_token=token) as client:
+            return await client.get_plan_features_by_system_id()
+
+    try:
+        plan_features = await safe_api_call(
+            hass, entry, _fetch_plan_features
+        )
+    except OasiraAPIError as plan_error:
+        _LOGGER.warning("Failed to fetch plan features: %s", plan_error)
         plan_features = None
-        try:
-            # Use safe_api_call to handle token expiry and retries
-            plan_features = await safe_api_call(hass, api_client.get_plan_features_by_system_id)
-        except Exception as pf_exc:
-            _LOGGER.warning("Failed to fetch plan features: %s", pf_exc)
-            plan_features = None
 
-            # Setup mobile_app integration with Firebase config from Oasira
-            try:
-                from .mobile_app_config import setup_mobile_app_integration
+    try:
+        from .mobile_app_config import setup_mobile_app_integration
 
-                mobile_app_success = await setup_mobile_app_integration(
-                    hass, api_client
-                )
-                if mobile_app_success:
-                    _LOGGER.info(
-                        "✅ Firebase config retrieved from Oasira and stored for EffortlessHome services. "
-                        "Note: Home Assistant's mobile_app integration requires manual configuration.yaml setup. "
-                        "Use 'effortlesshome.get_firebase_config' service to view the config."
-                    )
-                else:
-                    _LOGGER.info(
-                        "Firebase config not available from Oasira. "
-                        "This is optional and does not affect other features."
-                    )
-            except Exception as mobile_exc:
-                _LOGGER.warning(
-                    "Could not setup mobile app integration: %s",
-                    mobile_exc,
-                    exc_info=True,
-                )
+        async def _setup_mobile_app():
+            token = hass.data[DOMAIN].get("id_token")
+            if not token:
+                raise OasiraAPIError("Missing Firebase ID token")
+            async with OasiraAPIClient(system_id=system_id, id_token=token) as client:
+                return await setup_mobile_app_integration(hass, client)
 
-            hass.data[DOMAIN] = {
-                "entry_id": entry.entry_id,
-                "config_entry": entry,
-                "token_store": hass.data[DOMAIN]["token_store"],
-                "notification_tokens": hass.data[DOMAIN]["notification_tokens"],
-                "fullname": parsed_data["fullname"],
-                "phonenumber": parsed_data["phonenumber"],
-                "emailaddress": parsed_data["emailaddress"],
-                "ha_token": parsed_data["ha_token"],
-                "ha_url": parsed_data["ha_url"],
-                "ai_key": parsed_data["ai_key"],
-                "ai_model": parsed_data["ai_model"],
-                "email": parsed_data["emailaddress"],
-                "username": parsed_data["emailaddress"],
-                "systemid": system_id,
-                "customerid": customer_id,
-                "id_token": id_token,
-                "refresh_token": entry.data.get("refresh_token"),
-                "DaysHistoryToKeep": parsed_data["DaysHistoryToKeep"],
-                "LowTemperatureWarning": parsed_data["LowTemperatureWarning"],
-                "HighTemperatureWarning": parsed_data["HighTemperatureWarning"],
-                "LowHumidityWarning": parsed_data["LowHumidityWarning"],
-                "HighHumidityWarning": parsed_data["HighHumidityWarning"],
-                "address_json": parsed_data["address_json"],
-                "systemphotolurl": parsed_data["systemphotolurl"],
-                "testmode": parsed_data["testmode"],
-                "additional_contacts_json": parsed_data["additional_contacts_json"],
-                "instructions_json": parsed_data["instructions_json"],
-                "plan": parsed_data["name"],
-                "plan_features": plan_features,
-            }
-        except OasiraAPIError as e:
-            _LOGGER.error("Failed to fetch customer/system data: %s", e)
-            if "401" in str(e):
-                _LOGGER.info("Token expired, requesting reauth")
-                entry.async_start_reauth(hass)
-                return False
-            raise HomeAssistantError(
-                f"Failed to fetch customer/system data: {e}"
-            ) from e
+        mobile_app_success = await safe_api_call(
+            hass, entry, _setup_mobile_app
+        )
+        if mobile_app_success:
+            _LOGGER.info(
+                "Firebase config retrieved from Oasira and stored for EffortlessHome services. "
+                "Note: Home Assistant's mobile_app integration requires manual configuration.yaml setup. "
+                "Use 'effortlesshome.get_firebase_config' service to view the config."
+            )
+        else:
+            _LOGGER.info(
+                "Firebase config not available from Oasira. "
+                "This is optional and does not affect other features."
+            )
+    except Exception as mobile_exc:
+        _LOGGER.warning(
+            "Could not setup mobile app integration: %s",
+            mobile_exc,
+            exc_info=True,
+        )
+
+    hass.data[DOMAIN].update(
+        {
+            "entry_id": entry.entry_id,
+            "config_entry": entry,
+            "token_store": token_store,
+            "notification_tokens": hass.data[DOMAIN]["notification_tokens"],
+            "fullname": parsed_data["fullname"],
+            "phonenumber": parsed_data["phonenumber"],
+            "emailaddress": parsed_data["emailaddress"],
+            "ha_token": parsed_data["ha_token"],
+            "ha_url": parsed_data["ha_url"],
+            "ai_key": parsed_data["ai_key"],
+            "ai_model": parsed_data["ai_model"],
+            "email": parsed_data["emailaddress"],
+            "username": parsed_data["emailaddress"],
+            "systemid": system_id,
+            "customerid": customer_id,
+            "id_token": hass.data[DOMAIN].get("id_token"),
+            "refresh_token": entry.data.get("refresh_token"),
+            "DaysHistoryToKeep": parsed_data["DaysHistoryToKeep"],
+            "LowTemperatureWarning": parsed_data["LowTemperatureWarning"],
+            "HighTemperatureWarning": parsed_data["HighTemperatureWarning"],
+            "LowHumidityWarning": parsed_data["LowHumidityWarning"],
+            "HighHumidityWarning": parsed_data["HighHumidityWarning"],
+            "address_json": parsed_data["address_json"],
+            "systemphotolurl": parsed_data["systemphotolurl"],
+            "testmode": parsed_data["testmode"],
+            "additional_contacts_json": parsed_data["additional_contacts_json"],
+            "instructions_json": parsed_data["instructions_json"],
+            "plan": parsed_data["name"],
+            "plan_features": plan_features,
+        }
+    )
 
     device_registry = dr.async_get(hass)
     device_registry.async_get_or_create(
@@ -627,59 +657,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             # Label already exists → ignore
             _LOGGER.info("Label already exists: %s", desired)
 
-    # Start Firebase token refresh task (refresh every 50 minutes, tokens expire in 60 minutes)
     async def refresh_firebase_token():
-        """Periodically refresh the Firebase ID token."""
-        refresh_token = entry.data.get("refresh_token")
+        """Keep Firebase credentials fresh and persist rotated refresh tokens."""
+        while True:
+            retry_delay = 50 * 60
+            try:
+                if not await refresh_firebase_id_token(hass, entry):
+                    _LOGGER.error("Failed to refresh Firebase token")
+                    retry_delay = 5 * 60
+            except Exception:
+                _LOGGER.exception("Unexpected error refreshing Firebase token")
+                retry_delay = 5 * 60
+            await asyncio.sleep(retry_delay)
 
-        if not refresh_token:
-            _LOGGER.warning(
-                "No refresh token available - cannot refresh Firebase token"
-            )
-            return
-
-        try:
-            _LOGGER.info("Refreshing Firebase ID token...")
-
-            async with OasiraAPIClient() as api_client:
-                result = await api_client.firebase_refresh_token(refresh_token)
-
-            new_id_token = result.get("idToken")
-            new_refresh_token = result.get("refreshToken")
-
-            if new_id_token:
-                # Update the token in hass.data
-                hass.data[DOMAIN]["id_token"] = new_id_token
-                hass.data[DOMAIN]["refresh_token"] = (
-                    new_refresh_token or refresh_token
-                )
-
-                # Update the config entry data
-                hass.config_entries.async_update_entry(
-                    entry,
-                    data={
-                        **entry.data,
-                        "id_token": new_id_token,
-                        "refresh_token": new_refresh_token or refresh_token,
-                    },
-                )
-
-                _LOGGER.info("✅ Firebase ID token refreshed successfully")
-            else:
-                _LOGGER.error(
-                    "Failed to refresh Firebase token - no idToken in response"
-                )
-
-        except OasiraAPIError as e:
-            _LOGGER.error("Failed to refresh Firebase token: %s", e)
-            # Continue trying even if refresh fails
-        except Exception as e:
-            _LOGGER.exception("Unexpected error refreshing Firebase token: %s", e)
-        finally:
-            # Schedule the next refresh in 50 minutes
-            hass.loop.call_later(50 * 60, lambda: hass.async_create_task(refresh_firebase_token()))
-
-    async def after_home_assistant_started(event):
+    async def after_home_assistant_started(_event):
         """Call this function after Home Assistant has started."""
         # Create motion sensor groups
         try:
@@ -691,13 +682,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
         await loaddevicegroups(None)
 
-        # Start the refresh task
-        hass.async_create_task(refresh_firebase_token())
+        refresh_task = hass.async_create_task(refresh_firebase_token())
+        entry.async_on_unload(refresh_task.cancel)
 
     # Listen for the 'homeassistant_started' event
-    hass.bus.async_listen_once(
+    remove_start_listener = hass.bus.async_listen_once(
         EVENT_HOMEASSISTANT_STARTED, after_home_assistant_started
     )
+    entry.async_on_unload(remove_start_listener)
 
     return True
 
@@ -763,6 +755,20 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     webhook.async_unregister(hass, "effortlesshome_location_update")
 
     return True
+
+
+def _get_config_entry(hass: HomeAssistant) -> ConfigEntry:
+    """Get the active EffortlessHome config entry for token refresh."""
+    entry_id = hass.data.get(DOMAIN, {}).get("entry_id")
+    entry = hass.config_entries.async_get_entry(entry_id) if entry_id else None
+    if entry is None:
+        raise HomeAssistantError("EffortlessHome config entry is unavailable.")
+    return entry
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload EffortlessHome when its options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_init(hass: HomeAssistant, entry: ConfigEntry, auto_area: AutoArea):
@@ -969,7 +975,6 @@ async def create_event(call: ServiceCall) -> None:
 
                 # Call the API to create event
                 systemid = hass.data[DOMAIN].get("systemid")
-                id_token = hass.data[DOMAIN].get("id_token")
 
                 event_data = {
                     "sensor_device_class": sensor_device_class,
@@ -978,12 +983,25 @@ async def create_event(call: ServiceCall) -> None:
 
                 _LOGGER.info("Calling create event API with payload: %s", event_data)
 
-                async with OasiraAPIClient(system_id=systemid, id_token=id_token) as api_client:
-                    try:
-                        return await safe_api_call(hass, api_client.create_event, alarmid, event_data)
-                    except OasiraAPIError as e:
-                        _LOGGER.error("Failed to create event: %s", e)
-                        return None
+                async def _create_event():
+                    token = hass.data[DOMAIN].get("id_token")
+                    if not token:
+                        raise OasiraAPIError("Missing Firebase ID token")
+                    async with OasiraAPIClient(
+                        system_id=systemid, id_token=token
+                    ) as api_client:
+                        return await api_client.create_event(alarmid, event_data)
+
+                try:
+                    return await safe_api_call(
+                        hass, _get_config_entry(hass), _create_event
+                    )
+                except OasiraAPIError as e:
+                    _LOGGER.error("Failed to create event: %s", e)
+                    return None
+                except HomeAssistantError as e:
+                    _LOGGER.error("Failed to create event: %s", e)
+                    return None
     return None
 
 
@@ -1048,16 +1066,25 @@ async def handle_get_firebase_config(call: ServiceCall) -> None:
             return
 
         # Get Firebase config from Oasira
-        async with OasiraAPIClient(system_id=system_id, id_token=id_token) as api_client:
-            try:
-                # Use safe_api_call to handle token expiry and retries
-                mobile_app_config = await safe_api_call(hass, api_client.setup_mobile_app_integration, hass, api_client)
-                if mobile_app_config:
-                    # Generate YAML config for display
-                    yaml_config = generate_mobile_app_config_yaml(mobile_app_config)
+        async def _get_mobile_app_config():
+            token = hass.data[DOMAIN].get("id_token")
+            if not token:
+                raise OasiraAPIError("Missing Firebase ID token")
+            async with OasiraAPIClient(
+                system_id=system_id, id_token=token
+            ) as api_client:
+                return await api_client.setup_mobile_app_integration(hass, api_client)
 
-                    # Create a persistent notification with the config
-                    message = f"""
+        try:
+            mobile_app_config = await safe_api_call(
+                hass, _get_config_entry(hass), _get_mobile_app_config
+            )
+            if mobile_app_config:
+                # Generate YAML config for display
+                yaml_config = generate_mobile_app_config_yaml(mobile_app_config)
+
+                # Create a persistent notification with the config
+                message = f"""
         Firebase Configuration retrieved from Oasira:
 
         ```yaml
@@ -1069,22 +1096,22 @@ async def handle_get_firebase_config(call: ServiceCall) -> None:
 
         Without this configuration, mobile app notifications will not work.
         """
-                    notify_create(hass, message, title="Firebase Configuration")
-                    _LOGGER.info("Firebase config retrieved and displayed to user")
-                else:
-                    _LOGGER.error("Failed to retrieve Firebase config from Oasira")
-                    notify_create(
-                        hass,
-                        "Failed to retrieve Firebase configuration from Oasira",
-                        title="Firebase Config Error",
-                    )
-            except Exception as e:
-                _LOGGER.error(f"Error retrieving Firebase config: {e}", exc_info=True)
+                notify_create(hass, message, title="Firebase Configuration")
+                _LOGGER.info("Firebase config retrieved and displayed to user")
+            else:
+                _LOGGER.error("Failed to retrieve Firebase config from Oasira")
                 notify_create(
                     hass,
-                    f"Error retrieving Firebase config: {str(e)}",
+                    "Failed to retrieve Firebase configuration from Oasira",
                     title="Firebase Config Error",
                 )
+        except Exception as e:
+            _LOGGER.error(f"Error retrieving Firebase config: {e}", exc_info=True)
+            notify_create(
+                hass,
+                f"Error retrieving Firebase config: {str(e)}",
+                title="Firebase Config Error",
+            )
 
     except Exception as e:
         _LOGGER.error(f"Error retrieving Firebase config: {e}", exc_info=True)

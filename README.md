@@ -165,7 +165,10 @@ not include Supervisor or support add-ons.
 1. After installation, go to Configuration > Integrations
 2. Click the "+" button and search for "EffortlessHome"
 3. Enter your EffortlessHome account credentials
-4. Select the system you want to configure (if you have multiple systems)
+4. Select an existing system or create one by entering your Home Assistant URL and long-lived access token.
+
+Firebase ID tokens refresh automatically, and rotated refresh tokens are persisted
+with the integration config entry so authentication survives Home Assistant restarts.
 
 ### Home Assistant Network Settings 
 Using your local network information, add entries like these to Home Assistant in the Settings > System > Network page:
