@@ -683,7 +683,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         await loaddevicegroups(None)
 
         refresh_task = hass.async_create_task(refresh_firebase_token())
-        entry.async_on_unload(refresh_task.cancel)
+
+        @callback
+        def cancel_refresh_task() -> None:
+            refresh_task.cancel()
+
+        entry.async_on_unload(cancel_refresh_task)
 
     # Listen for the 'homeassistant_started' event
     remove_start_listener = hass.bus.async_listen_once(

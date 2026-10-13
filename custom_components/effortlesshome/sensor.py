@@ -5,13 +5,17 @@ from __future__ import annotations
 import json
 import logging
 import os
+from datetime import timedelta
+from urllib.parse import urlsplit
 from typing import Optional, List
 
+import aiohttp
 from homeassistant.components.light import DOMAIN as LIGHT_DOMAIN
 from homeassistant.components.sensor import SensorDeviceClass, SensorEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import SUN_EVENT_SUNRISE, SUN_EVENT_SUNSET
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import async_get as async_get_dev_reg
 from homeassistant.helpers.entity import async_generate_entity_id
@@ -21,6 +25,11 @@ from homeassistant.helpers.entity_platform import (
 )
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.sun import get_astral_event_date
+from homeassistant.helpers.update_coordinator import (
+    CoordinatorEntity,
+    DataUpdateCoordinator,
+    UpdateFailed,
+)
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, NAME
@@ -36,6 +45,8 @@ from .virtualpowersensor import (
 from homeassistant.const import LIGHT_LUX
 
 _LOGGER = logging.getLogger(__name__)
+TUNNEL_STATUS_URL = "https://my.effortlesshome.co/api/tunnel_status.php"
+TUNNEL_STATUS_UPDATE_INTERVAL = timedelta(minutes=1)
 
 
 async def async_setup_entry(
@@ -54,6 +65,14 @@ async def async_setup_entry(
     async_add_entities([AverageTemperatureSensor()])
     async_add_entities([VirtualIlluminanceSensor()])
     async_add_entities([HighTemperatureTomorrowSensor()])
+
+    ha_url = hass.data.get(DOMAIN, {}).get("ha_url", "")
+    hostname = urlsplit(ha_url).hostname if ha_url else None
+    if hostname:
+        tunnel_name = hostname.split(".", 1)[0]
+        coordinator = TunnelStatusCoordinator(hass, tunnel_name)
+        await coordinator.async_refresh()
+        async_add_entities([TunnelStatusSensor(coordinator, tunnel_name)])
 
     async_add_entities(
         [ConfigSensor("DaysHistoryToKeep", hass.data[DOMAIN]["DaysHistoryToKeep"])]
@@ -117,6 +136,87 @@ async def async_setup_entry(
 
     async_add_entities(powerentities)
     async_add_entities([TotalEnergySensor(hass)])
+
+
+class TunnelStatusCoordinator(DataUpdateCoordinator[str]):
+    """Fetch tunnel connection status from the EffortlessHome API."""
+
+    def __init__(self, hass: HomeAssistant, tunnel_name: str) -> None:
+        """Initialize the tunnel status coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="EffortlessHome tunnel status",
+            update_interval=TUNNEL_STATUS_UPDATE_INTERVAL,
+        )
+        self.tunnel_name = tunnel_name
+
+    async def _async_update_data(self) -> str:
+        """Request the current tunnel status."""
+        session = async_get_clientsession(self.hass)
+        ha_token = self.hass.data.get(DOMAIN, {}).get("ha_token")
+        headers = {"Authorization": f"Bearer {ha_token}"} if ha_token else {}
+        try:
+            async with session.get(
+                TUNNEL_STATUS_URL,
+                params={"tunnel_name": self.tunnel_name},
+                headers=headers,
+            ) as response:
+                response.raise_for_status()
+                response_text = await response.text()
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise UpdateFailed(f"Unable to fetch tunnel status: {err}") from err
+
+        try:
+            payload = json.loads(response_text)
+        except json.JSONDecodeError:
+            payload = response_text.strip()
+
+        if isinstance(payload, dict):
+            if payload.get("success") is False:
+                raise UpdateFailed("Tunnel status API reported an unsuccessful response")
+            status = payload.get(
+                "status", payload.get("tunnel_status", payload.get("connected"))
+            )
+            if status is None:
+                raise UpdateFailed("Tunnel status response did not include a status")
+        else:
+            status = payload
+
+        if isinstance(status, bool):
+            return "connected" if status else "disconnected"
+        if isinstance(status, (str, int, float)) and str(status).strip():
+            return str(status).strip()
+        raise UpdateFailed("Tunnel status response was empty or invalid")
+
+
+class TunnelStatusSensor(CoordinatorEntity[TunnelStatusCoordinator], SensorEntity):
+    """Sensor reporting whether the configured tunnel is connected."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Tunnel Connection Status"
+    _attr_icon = "mdi:vpn"
+
+    def __init__(
+        self, coordinator: TunnelStatusCoordinator, tunnel_name: str
+    ) -> None:
+        """Initialize the tunnel status sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"tunnel_connection_status_{tunnel_name}"
+
+    @property
+    def device_info(self):
+        """Return the EffortlessHome device."""
+        return {
+            "identifiers": {(DOMAIN, NAME)},
+            "name": NAME,
+            "manufacturer": NAME,
+        }
+
+    @property
+    def native_value(self) -> str:
+        """Return the current tunnel status."""
+        return self.coordinator.data
 
 
 async def _load_virtual_devices(hass, file_path):
