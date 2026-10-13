@@ -154,7 +154,10 @@ Easy area and label management — no YAML required.
 On Home Assistant OS or Supervised installations, use the **Add EffortlessHome
 Add-on Repository** button provided by the integration. Once the repository has
 been added, use the integration's **Install EffortlessHome Add-on** button.
-Check **Settings > Add-ons** for installation progress and configuration.
+After installation, use the integration's **Start EffortlessHome Add-on** and
+**Stop EffortlessHome Add-on** buttons to control it. Check **Settings > Add-ons**
+for installation progress and configuration; the integration also reports the
+add-on state in its **Add-on Status** sensor.
 This feature is not available with Home Assistant Container/Core, which does
 not include Supervisor or support add-ons.
 

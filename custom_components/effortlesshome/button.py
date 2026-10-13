@@ -22,6 +22,8 @@ async def async_setup_entry(
             [
                 AddEffortlessHomeAddonRepositoryButton(hass, entry),
                 InstallEffortlessHomeAddonButton(hass, entry),
+                StartEffortlessHomeAddonButton(hass, entry),
+                StopEffortlessHomeAddonButton(hass, entry),
             ]
         )
     async_add_entities(buttons)
@@ -121,3 +123,65 @@ class InstallEffortlessHomeAddonButton(ButtonEntity):
 
         _LOGGER.info("[EffortlessHome] Installing EffortlessHome add-on")
         await async_install_effortlesshome_addon(self.hass)
+
+
+class StartEffortlessHomeAddonButton(ButtonEntity):
+    """Button to start the EffortlessHome add-on through Supervisor."""
+
+    _attr_name = "Start EffortlessHome Add-on"
+    _attr_icon = "mdi:play"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, hass: HomeAssistant, entry) -> None:
+        """Initialize button."""
+        self.hass = hass
+        self._attr_unique_id = f"start_effortlesshome_addon_button_{entry.entry_id}"
+        self._attr_config_entry_id = entry.entry_id
+
+    @property
+    def device_info(self):
+        """Return information about the device."""
+        return {
+            "identifiers": {(DOMAIN, NAME)},
+            "name": NAME,
+            "manufacturer": NAME,
+            "model": NAME,
+        }
+
+    async def async_press(self) -> None:
+        """Start the EffortlessHome add-on through Supervisor."""
+        from . import async_control_effortlesshome_addon
+
+        _LOGGER.info("[EffortlessHome] Starting EffortlessHome add-on")
+        await async_control_effortlesshome_addon(self.hass, "start")
+
+
+class StopEffortlessHomeAddonButton(ButtonEntity):
+    """Button to stop the EffortlessHome add-on through Supervisor."""
+
+    _attr_name = "Stop EffortlessHome Add-on"
+    _attr_icon = "mdi:stop"
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, hass: HomeAssistant, entry) -> None:
+        """Initialize button."""
+        self.hass = hass
+        self._attr_unique_id = f"stop_effortlesshome_addon_button_{entry.entry_id}"
+        self._attr_config_entry_id = entry.entry_id
+
+    @property
+    def device_info(self):
+        """Return information about the device."""
+        return {
+            "identifiers": {(DOMAIN, NAME)},
+            "name": NAME,
+            "manufacturer": NAME,
+            "model": NAME,
+        }
+
+    async def async_press(self) -> None:
+        """Stop the EffortlessHome add-on through Supervisor."""
+        from . import async_control_effortlesshome_addon
+
+        _LOGGER.info("[EffortlessHome] Stopping EffortlessHome add-on")
+        await async_control_effortlesshome_addon(self.hass, "stop")

@@ -1,6 +1,7 @@
 """constants."""
 
 import datetime
+import hashlib
 from dataclasses import dataclass
 
 from homeassistant.components.binary_sensor import (
@@ -14,6 +15,17 @@ from homeassistant.components.switch.const import DOMAIN as SWITCH_DOMAIN
 NAME = "EffortlessHome"
 DOMAIN = "effortlesshome"
 VERSION = "2.0.13"
+SUPERVISOR_ADDON_REPOSITORY = (
+    "https://github.com/EffortlessHome/effortlesshome_addon"
+)
+SUPERVISOR_REPOSITORY_SLUG = hashlib.sha1(
+    SUPERVISOR_ADDON_REPOSITORY.lower().encode()
+).hexdigest()[:8]
+SUPERVISOR_ADDON_CONFIG_SLUG = "effortlesshome_bridge"
+SUPERVISOR_ADDON_SLUG = (
+    f"{SUPERVISOR_REPOSITORY_SLUG}_{SUPERVISOR_ADDON_CONFIG_SLUG}"
+)
+
 # Labels we want to ensure exist
 LABELS = [
     "Favorite",

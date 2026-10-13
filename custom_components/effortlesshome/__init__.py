@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import hashlib
 import json
 import logging
 import math
@@ -50,6 +49,8 @@ from .const import (
     DOMAIN,
     LABELS,
     NAME,
+    SUPERVISOR_ADDON_REPOSITORY,
+    SUPERVISOR_ADDON_SLUG,
 )
 from .deviceclassgroupsync import async_setup_devicegroup
 from .MotionSensorGrouper import MotionSensorGrouper
@@ -85,18 +86,6 @@ FIREBASE_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 FCM_URL = "https://fcm.googleapis.com/v1/projects/oasira-oauth/messages:send"
 PUSH_TOKEN_STORAGE_KEY = "effortlesshome_push_tokens"
 PUSH_TOKEN_STORAGE_VERSION = 1
-SUPERVISOR_ADDON_REPOSITORY = (
-    "https://github.com/EffortlessHome/effortlesshome_addon"
-)
-SUPERVISOR_REPOSITORY_SLUG = hashlib.sha1(
-    SUPERVISOR_ADDON_REPOSITORY.lower().encode()
-).hexdigest()[:8]
-SUPERVISOR_ADDON_CONFIG_SLUG = "effortlesshome_bridge"
-SUPERVISOR_ADDON_SLUG = (
-    f"{SUPERVISOR_REPOSITORY_SLUG}_{SUPERVISOR_ADDON_CONFIG_SLUG}"
-)
-
-
 class HASSComponent:
     """Hasscomponent."""
 
@@ -928,6 +917,48 @@ async def async_install_effortlesshome_addon(
         title="EffortlessHome",
         notification_id="effortlesshome_addon_installation_started",
     )
+
+
+async def async_control_effortlesshome_addon(
+    hass: HomeAssistant, action: str
+) -> None:
+    """Start or stop the EffortlessHome add-on through Supervisor."""
+    if action not in {"start", "stop"}:
+        raise ValueError(f"Unsupported EffortlessHome add-on action: {action}")
+
+    supervisor_token = os.environ.get("SUPERVISOR_TOKEN")
+    if not supervisor_token:
+        raise HomeAssistantError(
+            f"Cannot {action} the EffortlessHome add-on: "
+            "the Supervisor token is unavailable."
+        )
+
+    session = async_get_clientsession(hass)
+    try:
+        async with session.post(
+            f"http://supervisor/addons/{SUPERVISOR_ADDON_SLUG}/{action}",
+            headers={"Authorization": f"Bearer {supervisor_token}"},
+        ) as response:
+            if response.status < 200 or response.status >= 300:
+                _LOGGER.error(
+                    "Supervisor rejected the EffortlessHome add-on %s request "
+                    "with HTTP %s",
+                    action,
+                    response.status,
+                )
+                raise HomeAssistantError(
+                    f"Supervisor could not {action} the EffortlessHome add-on "
+                    f"(HTTP {response.status})."
+                )
+    except (aiohttp.ClientError, asyncio.TimeoutError) as err:
+        _LOGGER.exception(
+            "Failed to contact Supervisor to %s the EffortlessHome add-on", action
+        )
+        raise HomeAssistantError(
+            f"Unable to contact Supervisor to {action} the EffortlessHome add-on."
+        ) from err
+
+    _LOGGER.info("Requested Supervisor to %s the EffortlessHome add-on", action)
 
 
 async def update_entity(call):

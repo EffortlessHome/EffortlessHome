@@ -18,7 +18,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import async_get as async_get_dev_reg
-from homeassistant.helpers.entity import async_generate_entity_id
+from homeassistant.helpers.entity import EntityCategory, async_generate_entity_id
 from homeassistant.helpers.entity_platform import (
     AddEntitiesCallback,
     async_get_platforms,
@@ -32,7 +32,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, NAME
+from .const import DOMAIN, NAME, SUPERVISOR_ADDON_SLUG
 from .notificationdevice import effortlesshomenotificationdevice
 from .personsensor import eh_personSensor
 from .virtualpowersensor import (
@@ -47,6 +47,7 @@ from homeassistant.const import LIGHT_LUX
 _LOGGER = logging.getLogger(__name__)
 TUNNEL_STATUS_URL = "https://my.effortlesshome.co/api/tunnel_status.php"
 TUNNEL_STATUS_UPDATE_INTERVAL = timedelta(minutes=1)
+SUPERVISOR_ADDON_STATUS_UPDATE_INTERVAL = timedelta(minutes=1)
 
 
 async def async_setup_entry(
@@ -73,6 +74,10 @@ async def async_setup_entry(
         coordinator = TunnelStatusCoordinator(hass, tunnel_name)
         await coordinator.async_refresh()
         async_add_entities([TunnelStatusSensor(coordinator, tunnel_name)])
+
+    addon_coordinator = SupervisorAddonStatusCoordinator(hass)
+    await addon_coordinator.async_refresh()
+    async_add_entities([SupervisorAddonStatusSensor(addon_coordinator)])
 
     async_add_entities(
         [ConfigSensor("DaysHistoryToKeep", hass.data[DOMAIN]["DaysHistoryToKeep"])]
@@ -216,6 +221,72 @@ class TunnelStatusSensor(CoordinatorEntity[TunnelStatusCoordinator], SensorEntit
     @property
     def native_value(self) -> str:
         """Return the current tunnel status."""
+        return self.coordinator.data
+
+
+class SupervisorAddonStatusCoordinator(DataUpdateCoordinator[str]):
+    """Fetch the EffortlessHome add-on state from Supervisor."""
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        """Initialize the add-on status coordinator."""
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="EffortlessHome add-on status",
+            update_interval=SUPERVISOR_ADDON_STATUS_UPDATE_INTERVAL,
+        )
+
+    async def _async_update_data(self) -> str:
+        """Request the current add-on state."""
+        supervisor_token = os.environ.get("SUPERVISOR_TOKEN")
+        if not supervisor_token:
+            raise UpdateFailed("Supervisor token is unavailable")
+
+        session = async_get_clientsession(self.hass)
+        try:
+            async with session.get(
+                f"http://supervisor/addons/{SUPERVISOR_ADDON_SLUG}/info",
+                headers={"Authorization": f"Bearer {supervisor_token}"},
+            ) as response:
+                response.raise_for_status()
+                payload = await response.json()
+        except (aiohttp.ClientError, TimeoutError, json.JSONDecodeError) as err:
+            raise UpdateFailed(f"Unable to fetch add-on status: {err}") from err
+
+        data = payload.get("data") if isinstance(payload, dict) else None
+        state = data.get("state") if isinstance(data, dict) else None
+        if not isinstance(state, str) or not state.strip():
+            raise UpdateFailed("Supervisor response did not include add-on state")
+        return state.strip()
+
+
+class SupervisorAddonStatusSensor(
+    CoordinatorEntity[SupervisorAddonStatusCoordinator], SensorEntity
+):
+    """Sensor reporting the EffortlessHome add-on state."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Add-on Status"
+    _attr_icon = "mdi:package-variant"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: SupervisorAddonStatusCoordinator) -> None:
+        """Initialize the add-on status sensor."""
+        super().__init__(coordinator)
+        self._attr_unique_id = "effortlesshome_addon_status"
+
+    @property
+    def device_info(self):
+        """Return the EffortlessHome device."""
+        return {
+            "identifiers": {(DOMAIN, NAME)},
+            "name": NAME,
+            "manufacturer": NAME,
+        }
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the current add-on state."""
         return self.coordinator.data
 
 
