@@ -46,7 +46,8 @@ blueprint:
     off_target:
       name: Lights and switches to turn off
       description: Turn off these lights and switches (optional)
-      default: light.all_lights 
+      default:
+        entity_id: light.all_lights
       selector:
         target:
           entity:

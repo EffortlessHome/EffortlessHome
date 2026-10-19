@@ -59,10 +59,6 @@ action:
     data: {}
     target:
       entity_id: !input securityalarm  
-  - service: effortlesshome.create_alert_service
-    data:
-      alert_type: Security Alarm Trigger
-      alert_description: "Security Alarm Triggered by {{ triggering_sensor.entity_id }}"
-      status: Active  
+
   - choose: []
     default: !input additional_actions

@@ -59,10 +59,6 @@ action:
       message: Door or Window Left Open Or Unlocked When No One Home
       data:
         priority: high
-  - service: effortlesshome.create_alert_service
-    data:
-      alert_type: Door or Window left open or unlocked
-      alert_description: Door or Window Left Open Or Unlocked When No One Home
-      status: Active
+
   - choose: []
     default: !input additional_actions

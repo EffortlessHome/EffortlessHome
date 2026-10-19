@@ -99,11 +99,7 @@ action:
       title: Air Quality Alert
       message: !input notification_message
 
-  - service: effortlesshome.create_alert_service
-    data:
-      alert_type: Air Quality Alert
-      alert_description: !input notification_message
-      status: Active
+
 
   - choose: []
     default: !input additional_actions

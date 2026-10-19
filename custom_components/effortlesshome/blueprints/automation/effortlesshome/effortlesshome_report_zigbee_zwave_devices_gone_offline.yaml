@@ -62,11 +62,7 @@ action:
     data:
       message: 'Offline device(s) detected: {{ offline_devices }}'
 
-  - service: effortlesshome.create_alert_service
-    data:
-      alert_type: Offline device(s)
-      alert_description: Offline device(s) detected
-      status: Active
+
   - choose: []
     default: !input additional_actions
 

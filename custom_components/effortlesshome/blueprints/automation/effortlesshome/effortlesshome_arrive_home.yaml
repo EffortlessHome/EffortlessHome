@@ -15,7 +15,8 @@ blueprint:
     on_target:
       name: Lights and switches to turn on
       description: Turn on these lights and switches (optional)
-      default: light.all_lights
+      default:
+        entity_id: light.all_lights
       selector:
         target:
           entity:

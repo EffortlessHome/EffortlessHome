@@ -37,10 +37,6 @@ action:
       message: !input notification_message
       title: Smoke Alarm Activated
 
-  - service: effortlesshome.create_alert_service
-    data:
-      alert_type: Smoke Alarm Activated
-      alert_description: !input notification_message
-      status: Active
+
   - choose: []
     default: !input additional_actions
