@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Sign in to EffortlessHome",
-        "description": "Enter your EffortlessHome account credentials. New users can sign up on the EffortlessHome website.",
+        "description": "Enter your EffortlessHome account email and password to obtain Firebase tokens. The password is used only for sign-in and is not stored. New users can sign up on the EffortlessHome website.",
         "data": {
           "info": "Information",
           "email": "Email",

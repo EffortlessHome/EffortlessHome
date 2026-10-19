@@ -46,6 +46,7 @@ from .auth_helper import (
     safe_api_call,
 )
 from .const import (
+    CONF_PASSWORD,
     DOMAIN,
     LABELS,
     NAME,
@@ -86,6 +87,29 @@ FIREBASE_SCOPE = "https://www.googleapis.com/auth/firebase.messaging"
 FCM_URL = "https://fcm.googleapis.com/v1/projects/oasira-oauth/messages:send"
 PUSH_TOKEN_STORAGE_KEY = "effortlesshome_push_tokens"
 PUSH_TOKEN_STORAGE_VERSION = 1
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Remove legacy saved passwords from the config entry."""
+    if entry.version > 3:
+        _LOGGER.error(
+            "Cannot migrate EffortlessHome config entry from unsupported version %s",
+            entry.version,
+        )
+        return False
+
+    if entry.version < 3 or CONF_PASSWORD in entry.data:
+        data = {
+            key: value
+            for key, value in entry.data.items()
+            if key != CONF_PASSWORD
+        }
+        hass.config_entries.async_update_entry(entry, data=data, version=3)
+        _LOGGER.info("Migrated EffortlessHome credentials to token-based storage")
+
+    return True
+
+
 class HASSComponent:
     """Hasscomponent."""
 

@@ -8,7 +8,7 @@ from typing import Any, Awaitable, Callable, TypeVar
 from homeassistant.config_entries import ConfigEntry
 
 from .oasira import OasiraAPIClient, OasiraAPIError
-from .const import DOMAIN, CONF_REFRESH_TOKEN
+from .const import CONF_PASSWORD, CONF_REFRESH_TOKEN, DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -72,7 +72,11 @@ async def _refresh_id_token(hass, config_entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(
             entry=config_entry,
             data={
-                **config_entry.data,
+                **{
+                    key: value
+                    for key, value in config_entry.data.items()
+                    if key != CONF_PASSWORD
+                },
                 "id_token": new_id_token,
                 "refresh_token": new_refresh_token,
             },

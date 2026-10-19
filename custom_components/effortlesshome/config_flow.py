@@ -15,12 +15,11 @@ from homeassistant.helpers import selector
 
 from .auth_helper import safe_api_call
 from .oasira import OasiraAPIClient, OasiraAPIError
-from .const import DOMAIN, NAME
+from .const import CONF_PASSWORD, DOMAIN, NAME
 
 _LOGGER = logging.getLogger(__name__)
 
 CONF_EMAIL = "email"
-CONF_PASSWORD = "password"
 CONF_SYSTEM_ID = "system_id"
 CONF_CUSTOMER_ID = "customer_id"
 CONF_FIREBASE_UID = "firebase_uid"
@@ -63,7 +62,7 @@ GUEST_PERMISSION_DOMAINS = (
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the EffortlessHome integration setup with Firebase OAuth."""
 
-    VERSION = 2
+    VERSION = 3
 
     def __init__(self):
         """Initialize the config flow."""
@@ -520,7 +519,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self.hass.config_entries.async_update_entry(
                         entry,
                         data={
-                            **entry.data,
+                            **{
+                                key: value
+                                for key, value in entry.data.items()
+                                if key != CONF_PASSWORD
+                            },
                             CONF_EMAIL: email,
                             CONF_FIREBASE_UID: auth_result["firebase_uid"],
                             CONF_ID_TOKEN: auth_result["id_token"],

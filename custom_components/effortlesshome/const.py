@@ -114,6 +114,7 @@ STATE_TO_ARM_MODE = {
 ATTR_LATITUDE = "latitude"
 ATTR_LONGITUDE = "longitude"
 CONF_EMAIL = "email"
+CONF_PASSWORD = "password"
 CONF_TRACKING_ENABLED = "tracking_enabled"
 CONF_NOTIFICATIONS_ENABLED = "notifications_enabled"
 CONF_REFRESH_TOKEN = "refresh_token"
