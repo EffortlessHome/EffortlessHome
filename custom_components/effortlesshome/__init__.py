@@ -851,6 +851,15 @@ def register_services(hass: HomeAssistant) -> None:
         ),
     )
 
+    @callback
+    async def createcleanmotionfilesservice(call: ServiceCall) -> None:
+        await cleanmotionfiles(call)
+
+    hass.services.async_register(
+        DOMAIN, "createcleanmotionfilesservice", cleanmotionfiles
+    )
+
+
 
 async def async_add_effortlesshome_addon_repository(
     hass: HomeAssistant,
@@ -1105,6 +1114,28 @@ async def confirm_pending_alarm(call: ServiceCall) -> None:
 async def confirmpendingalarm(calldata) -> None:
     """Confirm pending alarm (deprecated name)."""
     await confirm_pending_alarm(calldata)
+
+async def cleanmotionfiles(calldata):
+    """Execute the shell command to delete old snapshots."""
+
+    age = "30"
+
+    try:
+        age = calldata.data["age"]
+    except:
+        _LOGGER.error("Invalid Args To Clean Motion Service. Using Default 30 days")
+
+    command = "find /media/snapshots/* -mtime +" + str(age) + " -exec rm {} \\;"
+
+    # Use subprocess to execute the shell command
+    process = subprocess.run(
+        command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False
+    )
+
+    if process.returncode == 0:
+        _LOGGER.info("Successfully deleted old snapshots.")
+    else:
+        _LOGGER.error(f"Error deleting snapshots: {process.stderr.decode()}")
 
 
 async def handle_get_firebase_config(call: ServiceCall) -> None:

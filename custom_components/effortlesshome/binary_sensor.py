@@ -7,10 +7,11 @@ from datetime import timedelta
 from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import Event, EventStateChangedData, HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.entity import Entity as HAEntity
 from homeassistant.helpers.area_registry import async_get as async_get_area_registry
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.restore_state import RestoreEntity
 from typing import Any
 from homeassistant.core import State
@@ -580,6 +581,8 @@ class MonitoringAlarm(BinarySensorEntity, RestoreEntity):
 class SleepingSensor(BinarySensorEntity, RestoreEntity):
     """Representation of a sensor."""
 
+    _attr_should_poll = False
+
     @property
     def device_info(self):
         """Return information about the device."""
@@ -590,19 +593,28 @@ class SleepingSensor(BinarySensorEntity, RestoreEntity):
         }
 
     async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+
+        switch_state = self.hass.states.get("switch.sleep_mode")
+        self._is_on = switch_state is not None and switch_state.state == "on"
+
         self.async_on_remove(
-            self.hass.bus.async_listen(
-                "sleeping_switch_updated", self._handle_switch_event
+            async_track_state_change_event(
+                self.hass, "switch.sleep_mode", self._handle_switch_state_change
             )
         )
 
-    async def _handle_switch_event(self, event):
-        self._state = "on" if event.data["is_on"] else "off"
+    @callback
+    def _handle_switch_state_change(
+        self, event: Event[EventStateChangedData]
+    ) -> None:
+        new_state = event.data["new_state"]
+        self._is_on = new_state is not None and new_state.state == "on"
         self.async_write_ha_state()
 
     def __init__(self) -> None:
         """Initialize the sensor."""
-        self._state = "off"
+        self._is_on = False
 
     @property
     def name(self) -> str:
@@ -617,30 +629,13 @@ class SleepingSensor(BinarySensorEntity, RestoreEntity):
     @property
     def is_on(self) -> bool | None:
         """Return true if entity is on."""
-        return self._state
+        return self._is_on
 
     @property
     def icon(self):
         # Return the specified icon or a default one
         return "mdi:chat-sleep-outline"
 
-    def update(self) -> None:
-        """Fetch new state data for the sensor.
-
-        This is the only method that should fetch new data for Home Assistant.
-        """
-        entity_id = "switch.sleep_mode"
-
-        # Get the state of the entity
-        state = self.hass.states.get(entity_id)
-
-        if state is not None:
-            # Get the state value (e.g., "on" or "off")
-            switch_state = state.state
-            _LOGGER.info("The state of %s is: %s", entity_id, switch_state)
-            self._state = switch_state
-        else:
-            self._state = "off"
 
 
 class SomeoneHomeSensor(BinarySensorEntity, RestoreEntity):
