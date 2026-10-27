@@ -45,7 +45,7 @@ from .virtualpowersensor import (
 from homeassistant.const import LIGHT_LUX
 
 _LOGGER = logging.getLogger(__name__)
-TUNNEL_STATUS_URL = "https://my.effortlesshome.co/api/tunnel_status.php"
+TUNNEL_STATUS_URL = "https://www.effortlesshome.co/api/tunnel_status"
 TUNNEL_STATUS_UPDATE_INTERVAL = timedelta(minutes=1)
 SUPERVISOR_ADDON_STATUS_UPDATE_INTERVAL = timedelta(minutes=1)
 
