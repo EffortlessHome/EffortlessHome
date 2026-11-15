@@ -1,6 +1,6 @@
 """Collection of utility methods for dealing with HomeAssistant."""
 
-from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.const import ATTR_ENTITY_ID, STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.device_registry import DeviceRegistry
 from homeassistant.helpers.entity_registry import EntityRegistry, RegistryEntry
@@ -41,6 +41,52 @@ def get_area_id(entity: RegistryEntry, device_registry: DeviceRegistry) -> str |
             return device.area_id
 
     return None
+
+
+def get_group_member_entity_ids(hass: HomeAssistant, entity_id: str) -> list[str]:
+    """Return the entity ids that are direct members of a group entity."""
+    state = hass.states.get(entity_id)
+    if state is None:
+        return []
+
+    members = state.attributes.get(ATTR_ENTITY_ID)
+    if not members:
+        return []
+
+    return [member for member in members if isinstance(member, str)]
+
+
+def creates_group_cycle(
+    hass: HomeAssistant, group_entity_id: str | None, member_entity_id: str
+) -> bool:
+    """Check if adding a member to a group creates a circular reference.
+
+    A group that contains itself, either directly or through another group,
+    makes Home Assistant update the state of that group endlessly. The event
+    loop is then flooded with state changes which locks up Home Assistant.
+    """
+    if not group_entity_id:
+        return False
+
+    if member_entity_id == group_entity_id:
+        return True
+
+    visited: set[str] = set()
+    pending: list[str] = [member_entity_id]
+
+    while pending:
+        current = pending.pop()
+
+        if current == group_entity_id:
+            return True
+
+        if current in visited:
+            continue
+
+        visited.add(current)
+        pending.extend(get_group_member_entity_ids(hass, current))
+
+    return False
 
 
 def all_states_are_off(
